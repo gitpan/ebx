@@ -1,3 +1,6 @@
+# $File: //depot/ebx/PassRing.pm $ $Author: autrijus $
+# $Revision: #9 $ $Change: 1120 $ $DateTime: 2001/06/13 11:27:23 $
+
 package OurNet::BBSApp::PassRing;
 
 $VESION = '0.3';
@@ -17,7 +20,7 @@ sub new {
     $self->{keyfile} = $keyfile;
     $self->{who}     = $who;
 
-    $gpg->options->hash_init( armor => 1, always_trust => 1);
+    $gpg->options->hash_init( armor => 0, always_trust => 1);
     $gpg->options->meta_interactive( 0 );
     $gpg->options->push_recipients($self->{who});
     
@@ -32,6 +35,7 @@ sub get_keyring {
     )) if $^O eq 'cygwin'; # XXX: kludge, fixme.
 
     local $/;
+    return unless -e $self->{keyfile};
     open KEY, $self->{keyfile} 
 	or die "can't open keyfile $self->{keyfile}: $!";
 
@@ -100,4 +104,5 @@ sub save_keyring {
     print KEY $ci;
     close KEY; 
 }
+
 1;

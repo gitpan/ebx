@@ -1,13 +1,17 @@
+# $File: //depot/ebx/Sync.pm $ $Author: autrijus $
+# $Revision: #38 $ $Change: 1120 $ $DateTime: 2001/06/13 11:27:23 $
+
 package OurNet::BBSApp::Sync;
 require 5.006;
 
-$VERSION = '0.81';
+$VERSION = '0.82-dev';
 
 use strict;
 use integer;
 
-use OurNet::BBS;
+use IO::Handle;
 use Mail::Address;
+use OurNet::BBS;
 
 =head1 NAME
 
@@ -16,9 +20,9 @@ OurNet::BBSApp::Sync - Sync between BBS article groups
 =head1 SYNOPSIS
 
     my $sync = OurNet::BBSApp::Sync->new({
-        artgrp     => $local->{boards}{board1}{articles},
-        rartgrp    => $remote->{boards}{board2}{articles},
-        param      => {
+        artgrp      => $local->{boards}{board1}{articles},
+        rartgrp     => $remote->{boards}{board2}{articles},
+        param       => {
 	    lseen   => 0,
 	    rseen   => 0,
 	    remote  => 'bbs.remote.org',
@@ -30,8 +34,10 @@ OurNet::BBSApp::Sync - Sync between BBS article groups
 		'20010608213307.suqAZQosHH7LxHCXVi1c9A@geb.elixus.org',
             ]
         },
-        backend    => 'BBSAgent',
-        logfh      => \*STDOUT,
+        force_fetch => 0,
+	force_send  => 0,
+        backend     => 'BBSAgent',
+        logfh       => \*STDOUT,
     });
 
     $sync->do_fetch();
@@ -54,14 +60,15 @@ Lots. Please report bugs as much as possible.
 
 =cut
 
-use fields qw/artgrp rartgrp param backend logfh msgidkeep hostname/;
+use fields qw/artgrp rartgrp param backend logfh msgidkeep hostname
+              force_send force_fetch/;
 
 sub new {
     my $self = OurNet::BBS::Base::TIEHASH(@_); # save time
 
     $self->{msgidkeep} ||= 128;
-    $self->{logfh}     ||= \*STDIN;
-    $self->{hostname}  ||= $OurNet::BBS::Utils::hostname || 'localhost' ;
+    $self->{logfh}     ||= IO::Handle->new()->fdopen(fileno(STDOUT),"w");
+    $self->{hostname}  ||= $OurNet::BBS::Utils::hostname || 'localhost';
 
     return $self;
 }
@@ -88,9 +95,9 @@ sub do_retrack {
     my $msgid = eval {$rid->[$try]{header}{'Message-ID'}};
 
     return (($msgid && nth($myid, $msgid) == -1)
-        ? $low-1 : $low) if $low == $high;
+        ? $low - 1 : $low) if $low == $high;
 
-    print $logfh ("  [retrack] #$try: try in [$low - $high]\n");
+    $logfh->print("  [retrack] #$try: try in [$low - $high]\n");
 
     if ($msgid and nth($myid, $msgid) != -1) {
         return $self->do_retrack($rid, $myid, $try + 1, $high);
@@ -104,7 +111,7 @@ sub retrack {
     my ($self, $rid, $myid, $rseen) = @_;
     my $logfh = $self->{logfh};
 
-    print $logfh ("  [retrack] #$rseen: checking\n");
+    $logfh->print("  [retrack] #$rseen: checking\n");
 
     return $rseen if (eval {
 	$rid->[$rseen]{header}{'Message-ID'}
@@ -115,12 +122,12 @@ sub retrack {
 	$myid, 
 	($rseen > $self->{msgidkeep}) 
 	    ? $rseen - $self->{msgidkeep} : 0, 
-	$rseen-1
+	$rseen - 1
     );
 }
 
 sub do_send {
-    my $self = $_[0];
+    my $self     = $_[0];
     my $artgrp   = $self->{artgrp};
     my $rartgrp  = $self->{rartgrp};
     my $param    = $self->{param};
@@ -132,7 +139,7 @@ sub do_send {
     return unless $lseen eq int($lseen || 0); # must be int
     $lseen = $#{@$artgrp} if $#{@$artgrp} < $lseen;
 
-    print $logfh ("     [send] checking...\n");
+    $logfh->print("     [send] checking...\n");
 
     if ($param->{lmsgid}) { # backtrace
 	++$lseen;
@@ -140,22 +147,26 @@ sub do_send {
 	while (--$lseen > 0) {
 	    my $art = eval { $artgrp->[$lseen] } or next;
 
-	    print $logfh ("     [send] #$lseen: backtracing\n");
+	    $logfh->print("     [send] #$lseen: backtracing\n");
 	    last unless $param->{lmsgid} lt $art->{header}{'Message-ID'};
 	}
 
         $param->{lseen} = $lseen;
     }
 
+    return if ($lseen >= $#{$artgrp});
+
     while ($lseen++ < $#{@$artgrp}) {
         my $art = eval { $artgrp->[$lseen] } or next;
 
         next unless (
+	    $self->{force_send} or
 	    index(($art->{header}{'X-Originator'} || ''),  
 		  "$rbrdname.board\@$param->{remote}") == -1
 	    and ($backend ne 'NNTP' or !$art->{header}{Path})
 	);
-	print $logfh ("     [send] #$lseen: posting $art->{title}\n");
+
+	$logfh->print("     [send] #$lseen: posting $art->{title}\n");
 
 	my %xart = (header => { %{$art->{header}} });
 	safe_copy($art, \%xart);
@@ -169,7 +180,7 @@ sub do_send {
 	my $xorig = $artgrp->board.'.board@'.$self->{hostname};
 
 	if (index(' NNTP MELIX DBI ', $backend) > -1
-	    or ($backend eq 'PlClient' 
+	    or ($backend eq 'OurNet' 
 	        and index(' NNTP MELIX DBI ', $rartgrp->backend()) > -1))
 	{
 	    $xart{header}{'X-Originator'} = $xorig;
@@ -190,7 +201,8 @@ sub do_send {
 	    $param->{lmsgid} = $art->{header}{'Message-ID'};
 	}
 	else {
-	    print $logfh ("     [send] #$lseen: can't post $@\n");
+	    my $error = $@; chomp $error;
+	    $logfh->print("     [send] #$lseen: can't post ($error)\n");
 	}
     }
 
@@ -224,7 +236,7 @@ sub do_fetch {
     $rseen += $last if $rseen < 0;      # negative subscripts
     $rseen = $last  if $rseen > $last;  # upper bound
 
-    print $logfh "    [fetch] #$param->{rseen}: checking\n";
+    $logfh->print("    [fetch] #$param->{rseen}: checking\n");
 
     if ($#{$param->{msgids}} >= 0) {
 	$rseen = $self->retrack($rartgrp, $param->{msgids}, $rseen)
@@ -239,7 +251,7 @@ sub do_fetch {
         my $i = $rfirst;
 
         while($i <= $rseen) {
-            print $logfh "    [fetch] #$i: init";
+            $logfh->print("    [fetch] #$i: init");
 
 	    eval {
 		my $art = $rartgrp->[$i++];
@@ -247,20 +259,24 @@ sub do_fetch {
 		push @{$param->{msgids}}, $art->{header}{'Message-ID'};
 	    };
 
-            print $logfh $@ ? " failed: $@\n" : " ok\n";
+            $logfh->print($@ ? " failed: $@\n" : " ok\n");
         }
 
         $rseen = $i - 1;
     }
 
-    print $logfh ($rseen < $last)
-	? "    [fetch] range: ".($rseen+1)."..$last\n"
-	: "    [fetch] nothing to fetch ($rseen >= $last)\n";
+    $logfh->print(
+	($rseen < $last)
+	    ? "    [fetch] range: ".($rseen+1)."..$last\n"
+	    : "    [fetch] nothing to fetch ($rseen >= $last)\n"
+    );
+
+    return if $rseen >= $last;
 
     while ($rseen < $last) {
         my $art;
 
-        print $logfh "    [fetch] #".($rseen+1).": reading";
+        $logfh->print("    [fetch] #".($rseen+1).": reading");
 
 	eval {
 	    $art = $rartgrp->[$rseen+1];
@@ -268,7 +284,7 @@ sub do_fetch {
 	};
 
 	if ($@) {
-            print $logfh "... nonexistent, failed\n";
+            $logfh->print("... nonexistent, failed\n");
 	    ++$rseen; next;
         }
 
@@ -276,6 +292,7 @@ sub do_fetch {
 	my $rhead = $art->{header};
 
 	if (
+	    $self->{force_fetch} or
 	    rindex($art->{body}, "X-Originator: $xorig") == -1 and
 	    nth($param->{msgids}, $rhead->{'Message-ID'}) == -1 and
 		($rhead->{'X-Originator'} || '') ne $xorig
@@ -301,10 +318,10 @@ sub do_fetch {
 		unless defined($xart{author}); # for sanity's sake
 
             $artgrp->{''} = \%xart;
-            print $logfh (" $xart{title}\n");
+            $logfh->print(" $xart{title}\n");
         }
         else {
-            print $logfh ("... duplicate, skipped\n");
+            $logfh->print("... duplicate, skipped\n");
 	    push @{$param->{msgids}}, $art->{header}{'Message-ID'};
         }
 
@@ -313,7 +330,7 @@ sub do_fetch {
 
     $param->{rseen} = $rseen;
 
-    return $artgrp->[-1]; # must be here to re-initialize this board
+    return $artgrp->[-1] || 1; # must be here to re-initialize this board
 }
 
 sub safe_copy {

@@ -19,7 +19,7 @@ WriteMakefile(
 	'Term::ReadKey'		=> '2.14',       # ebx
 	'MIME::Base64'		=> '2.12',       # ebx
 	'Compress::Zlib'	=> '1.12',       # ebx
-	'Getopt::Declare'	=> '1.08',       # ebx
+	'Getopt::Std'		=> '1.02',       # ebx
 	'Storable'		=> '1.011',      # ebx
     },
 	

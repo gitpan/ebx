@@ -1,4 +1,172 @@
 ____________________________________________________________________________
+[  1120] By: autrijus@autribsd                     on 2001/06/13 11:27:23
+	Log: * this be EBX v0.82 release.
+       Path: .
+	   ! PassRing.pm Sync.pm
+____________________________________________________________________________
+[  1115] By: autrijus@autribsd                     on 2001/06/13 11:10:43
+	Log: * various new error handling code to comply with OurNet
+	     backend.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1109] By: autrijus@autribsd                     on 2001/06/13 03:58:37
+	Log: * two 'Change' fields are redundant.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1108] By: autrijus@autribsd                     on 2001/06/13 03:57:18
+	Log: * fix typo.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1105] By: autrijus@autribsd                     on 2001/06/13 03:28:17
+	Log: * enable -h option and updates manpage.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1104] By: autrijus@autribsd                     on 2001/06/13 03:22:51
+	Log: * add revision message to ebx.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1103] By: autrijus@autribsd                     on 2001/06/13 03:06:15
+	Log: * testing RCS flags
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1100] By: autrijus@autribsd                     on 2001/06/13 02:11:49
+	Log: * reflect the PlClient => OurNet name change on ebx.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1092] By: autrijus@autribsd                     on 2001/06/13 00:35:28
+	Log: * fix a glaring problem: password fetching wasn't working!
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1088] By: autrijus@autribsd                     on 2001/06/12 22:16:17
+	Log: * rescue those who doesn't have keyring.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1086] By: autrijus@autribsd                     on 2001/06/12 12:35:36
+	Log: * add new PlClient support to ebx.
+	     * on servers without setpass arguments, default
+	     user/passphrase is used.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1083] By: clkao@claptop                         on 2001/06/12 11:20:59
+	Log: rescue those who didn't have keyring.
+       Path: .
+	   ! PassRing.pm
+____________________________________________________________________________
+[  1081] By: autrijus@autribsd                     on 2001/06/12 08:02:27
+	Log: * experimental support for fetch->send->fetch->... chain
+	     * (not functional)
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1080] By: autrijus@autribsd                     on 2001/06/12 07:43:14
+	Log: * patch from rabit: restore ReadMode before exec'ing perldoc.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1078] By: autrijus@autribsd                     on 2001/06/12 06:48:53
+	Log: * introduces -F (force_fetch) and -S (force_send) to ebx.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1074] By: autrijus@autribsd                     on 2001/06/12 03:54:40
+	Log: * remove armore option from PassRing.
+	     * ebx now uses two-argument form to call BBSAgent.
+       Path: .
+	   ! PassRing.pm ebx
+____________________________________________________________________________
+[  1064] By: clkao@claptop                         on 2001/06/11 17:19:22
+	Log: no longer used.
+       Path: .
+	   - ebxpass ebxsync
+____________________________________________________________________________
+[  1062] By: autrijus@autribsd                     on 2001/06/11 08:42:29
+	Log: * no longer require getopd::declare.
+       Path: .
+	   ! Makefile.PL
+____________________________________________________________________________
+[  1061] By: autrijus@autribsd                     on 2001/06/11 08:40:37
+	Log: * no long requires STDOUT be opened multiple times.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1050] By: autrijus@autricvic                    on 2001/06/11 07:23:58
+	Log: * fix warnings from empty args
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1048] By: autrijus@autribsd                     on 2001/06/11 06:23:27
+	Log: * yasb.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1047] By: autrijus@autribsd                     on 2001/06/11 06:22:27
+	Log: * uncompleted clear board support.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1042] By: autrijus@autribsd                     on 2001/06/11 02:46:25
+	Log: * YASB
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1041] By: autrijus@autribsd                     on 2001/06/11 01:36:17
+	Log: * fix IO::Handle default for Sync.pm
+	     * fix command/option order for ebx
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1040] By: autrijus@autribsd                     on 2001/06/11 01:01:35
+	Log: * fixed the humorous EBX_HOME bug by last change
+	     * use Getopt::Std instead of Getopt::Declare 
+	     * use File::Spec to determine temporary directory
+	     * use IO::Handle to avoid *STDIN style globbing
+	     * removed File::Glob dependency for Win32 building
+	     * interface cleanup
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1039] By: autrijus@autribsd                     on 2001/06/11 00:54:19
+	Log: * change print LOG to $logfh->print using IO::Handles
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1036] By: autrijus@Izero2                       on 2001/06/10 20:43:45
+	Log: last time fix
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1035] By: autrijus@Izero2                       on 2001/06/10 20:30:10
+	Log: patch for win32 glob.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1034] By: autrijus@Izero2                       on 2001/06/10 19:48:12
+	Log: EBX on Win32 patch!
+       Path: .
+	   ! ebx
+       Path: build
+	   + makeebx.bat
+____________________________________________________________________________
+[  1021] By: clkao@claptop                         on 2001/06/10 08:48:45
+	Log: bump version after release point.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1020] By: autrijus@autribsd                     on 2001/06/10 05:32:37
+	Log: * 0.81 changes. let this be a convention.
+       Path: .
+	   ! Changes
+____________________________________________________________________________
 [  1019] By: autrijus@autribsd                     on 2001/06/10 05:28:03
 	Log: * this be the 0.81 maintainence release.
        Path: .
