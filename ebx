@@ -1,10 +1,10 @@
 #!/usr/bin/perl -w
 
-$VERSION = '0.8';
+$VERSION = '0.81';
 
 =head1 NAME
 
-ebx - Elixir BBS extension suite
+ebx - Elixir BBS Exchange Suite
 
 =head1 SYNOPSIS
 
@@ -85,6 +85,7 @@ use strict;
 use Term::ReadKey;
 
 BEGIN { ReadMode('noecho') }
+END   { ReadMode('restore') }
 
 use MIME::Base64;
 use Compress::Zlib;
@@ -97,10 +98,7 @@ use OurNet::BBSApp::Sync;
 use vars qw/$user $nopass $nolock %synclist $logfile $maxmsg/;
 
 my $args = Getopt::Declare->new(options());
-my $bbs  = OurNet::BBS->new(
-    $ENV{EBX_BACKEND} || 'MELIX', 
-    $ENV{EBX_BBSROOT} || (-d '/home/melix' ? '/home/melix' : '/home/bbs')
-);
+my $bbs  = init_bbs();
 
 *LOG = *STDOUT unless $args->{-o};
 
@@ -116,7 +114,7 @@ else                      { $args->usage(); }
 # ===================================================================
 
 sub setboard {
-    foreach my $board (keys(%synclist)) {
+    foreach my $board (arg_list()) {
 	modify_board (
 	    $board,
 	    get_addr(
@@ -132,6 +130,7 @@ sub setboard {
 
     print "boards(s) successfully set.\n";
 }
+
 
 sub get_addr {
     my ($backend, $site) = @_;
@@ -159,7 +158,7 @@ sub modify_board {
     $rsen ||= 0;
 
     $bbs->{boards}{$lbrd} = {
-	title => $ltit,
+	title => (index($ltit, 2, 1) eq ' ' ? $ltit : "   $ltit"),
 	bm    => "# $site",
     };
 
@@ -167,10 +166,13 @@ sub modify_board {
     my $arv = $brd->{archives};
 
     (($#{$arv} > 0) ? $arv->[1] : $arv->{''}) = {
-	author => 'SYSOP',
-	nick   => "EBX v$main::VERSION",
-	title  => '#',
-	body => << ".",
+	header => {
+	    From    => "SYSOP (EBX v$main::VERSION)",
+	    Subject => '#',
+	    Board   => $lbrd,
+	    Date    => (scalar localtime),
+	},
+	body        => << ".",
 # remote: $addr
 # backend: $back
 # source: $site
@@ -191,7 +193,7 @@ __XMSGID__
 sub addpass {
     my ($passring, $keyring) = get_keyring();
 
-    foreach my $site (keys(%synclist)) {
+    foreach my $site (arg_list()) {
 	my $login = input("Enter login name for $site: ");
 	my $pass  = input("Enter password for $login\@$site: ", 1);
 
@@ -218,7 +220,7 @@ sub listpass {
 sub delpass {
     my ($passring, $keyring) = get_keyring();
 
-    foreach my $site (keys(%synclist)) {
+    foreach my $site (arg_list()) {
 	unless (exists $keyring->{$site}) {
 	    warn "site $site does not exist\n";
 	    next;
@@ -304,7 +306,7 @@ sub sync_init {
 
     my $boards = $bbs->{boards};
 
-    foreach my $name (keys(%$boards)) {
+    foreach my $name (sort { uc($a) cmp uc($b) } keys(%$boards)) {
 	my $brd = $boards->{$name};
 	my $arv = $brd->{archives};
 	    
@@ -318,7 +320,7 @@ sub sync_init {
 		and !$synclist{'@'.($param{source} || '')};
 
 	    next unless $param{source} and $param{board} 
-		and length($param{rseen});
+		and (length($param{rseen}) or length($param{lseen}));
 
 	    print " $name";
 	    
@@ -444,7 +446,7 @@ sub make_logfile {
 sub input {
     my ($prompt, $silent) = @_;
 
-    ReadMode($silent ? 'noecho' : 0);
+    ReadMode($silent ? 'noecho' : 'normal');
 
     print $prompt;
     my $input = <STDIN>;
@@ -452,6 +454,22 @@ sub input {
     print "\n" if $silent;
 
     return $input;
+}
+
+sub init_bbs {
+    my ($bbs, $backend, $bbsroot);
+    $backend = $ENV{EBX_BACKEND} || 'MELIX'; 
+    $bbsroot = $ENV{EBX_BBSROOT} || 
+	(-d '/home/melix' ? '/home/melix' : '/home/bbs');
+    
+    $bbs = eval { OurNet::BBS->new($backend, $bbsroot, 2997, 350) };
+    
+    if ($@) {
+	$bbs = OurNet::BBS->new($backend, $bbsroot);
+	warn "warning: tying up shared memory (2997, 350) failed.\n";
+    }
+
+    return $bbs;
 }
 
 sub options {
@@ -472,6 +490,10 @@ sub options {
     close DATA;
 
     return $output;
+}
+
+sub arg_list {
+    return sort {lc($a) cmp lc($b)} keys(%synclist);
 }
 
 1;

@@ -1,4 +1,75 @@
 ____________________________________________________________________________
+[  1019] By: autrijus@autribsd                     on 2001/06/10 05:28:03
+	Log: * this be the 0.81 maintainence release.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1018] By: autrijus@autribsd                     on 2001/06/10 05:00:28
+	Log: * fixes the post-STORE init (voodoo reload) problem reported
+	     by rabit.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1017] By: autrijus@autribsd                     on 2001/06/10 03:06:35
+	Log: * ebx now processes in a sorted fashion.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1015] By: autrijus@autricvic                    on 2001/06/10 01:20:05
+	Log: * more X-Orig munging to avoid duplicate newlines.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1014] By: autrijus@autribsd                     on 2001/06/10 00:55:30
+	Log: * fixed some warnings in Sync.pm
+	     * X-Orig line won't append \n now
+	     * patch from rubit: ReadMode for ebx fixed
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1009] By: autrijus@autribsd                     on 2001/06/09 17:58:01
+	Log: * stupid bug.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1007] By: autrijus@autribsd                     on 2001/06/09 16:41:47
+	Log: * did away with the voodoo style preloading
+	     * fixed the stupid '.' lookup in backtracing
+	     * include X-Originator in header on PlClient/MELIX/DBI 
+	     * improved X-Originator rendering along with M3-style footer
+	     * use rindex instead of index to speed up lookups
+	     * use defined() to test pathetic cases instead of ||=
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1006] By: autrijus@autribsd                     on 2001/06/09 16:39:05
+	Log: * ebx attempts to tie shm now
+	     * include header in the configuration files in archive
+	     * ebx will run with lseen defined even if rseen is null
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[   998] By: autrijus@autricvic                    on 2001/06/09 10:51:25
+	Log: * change title in pod to Elixir BBS Exchange Suite
+	     * updates version number
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[   997] By: autrijus@autricvic                    on 2001/06/09 10:41:43
+	Log: * typo #2 and #3
+       Path: .
+	   ! PassRing.pm ebx
+____________________________________________________________________________
+[   996] By: autrijus@autricvic                    on 2001/06/09 10:39:55
+	Log: * typo
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   995] By: autrijus@autribsd                     on 2001/06/09 10:38:55
+	Log: * changelist before v0.8
+       Path: .
+	   ! Changes
+____________________________________________________________________________
 [   993] By: autrijus@autribsd                     on 2001/06/09 10:36:42
 	Log: * ebx v0.8 release.
        Path: .
