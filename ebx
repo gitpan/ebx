@@ -1,10 +1,16 @@
 #!/usr/bin/perl
-# $File: //depot/ebx/ebx $ $Author: autrijus $
-# $Revision: #61 $ $Change: 1480 $ $DateTime: 2001/07/23 01:13:40 $
+# $File: //depot/ebx/ebx $ $Author: clkao $
+# $Revision: #94 $ $Change: 1691 $ $DateTime: 2001/09/04 06:04:53 $
 
-$VERSION  = '0.84';
-$REVISION = "rev$1\[\@$2\]"
-    if ('$Revision: #61 $ $Change: 1480 $' =~ /(\d+)[^\d]+(\d+)/);
+$VERSION  = '0.86';
+
+if ($] > 5.007001) {
+    $REVISION = 'rev80[@1590]-buggy';
+}
+else {
+    $REVISION = "rev$1\[\@$2\]" 
+        if ('$Revision: #94 $ $Change: 1691 $' =~ /(\d+)[^\d]+(\d+)/);
+}
 
 =head1 NAME
 
@@ -12,9 +18,9 @@ ebx - Elixir BBS Exchange Suite
 
 =head1 SYNOPSIS
 
-    % ebx sync [-lgdfh] [-m <maxmsg>] [-o [logfile]] ]
-               [-u <user>] [<boards>...]
-    % ebx <set|del|list>pass [-r] [-l] [-d] [-u <user>]
+    % ebx sync [-adfghlmouAFPRS] [-m <maxmsg>] [-o [logfile]] ]
+               [-u <user>] [-r <seconds>] [<boards>...]
+    % ebx <set|del|list>pass [-u <user>] [<sites>...]
     % ebx <set|list>board [<boards>...]
 
 =head1 DESCRIPTION
@@ -28,26 +34,29 @@ settings configured within.
 
     setpass		add login/password pairs
     delpass		delete login/password pairs
-    listpass		list current keyring
+    listpass		list current passring
 
     setboard		set up boards for mirroring
     listboard		list board settings
 
 =head1 OPTIONS
 
+    -a			recursively sync archive
     -d			enable debugging messages
-    -f			enable per-site forking
+    -f			enable per-site forking (Unix only)
     -g			skip passring check, use guest for all sites
+    -h			show help message and usage info
     -l			enable per-site locking
-    -S			force sending of duplicate articles
-    -F			force fetching of duplicate articles
-    -R			refresh message id, do nothing else
-    -P			preserve remote user id and headers
     -m <maxmsg>		set maximal number of message to keep track
     -o [logfile]	output to log stdout instead of log files
-    -u <user>		specify the owner of gpg keyring
-    -a			recursively sync archive. *EXPERIMENTAL*
-    <synclist>...	process specified boards or source
+    -r <delay>		repeat sync every <delay> seconds
+    -u <user>		specify the owner of gpg passring
+    -A			sync archive *only*: ignore articles
+    -F			force fetching of duplicate articles
+    -P			preserve remote user id and headers
+    -R			refresh message id, do nothing else
+    <boards>...		process specified boards or source
+    <sites>...		set passring against specified site identifiers
 
 =head1 ENVIRONMENT
 
@@ -65,7 +74,7 @@ The local BBS's location. Defaults to /home/melix or /home/bbs.
 
 =item EBX_USER
 
-The owner to C<.ebx.keyring>, the private keyring used to store
+The owner to C<.ebx.keyring>, the private passring used to store
 encrypted ebx passwords. Defaults to USER.
 
 =item EBX_HOME
@@ -78,7 +87,9 @@ The home directory of EBX_USER, defaults to HOME.
 
 use strict;
 use warnings;
-use open IN => ':raw', OUT => ':raw';
+
+use constant IsWin32 => ($^O eq 'MSWin32');
+use open (IsWin32 ? (IN => ':raw', OUT => ':raw') : ());
 use Term::ReadKey;
 
 BEGIN { ReadMode('noecho') }
@@ -91,53 +102,35 @@ use Compress::Zlib;
 use Getopt::Std;
 use Storable qw/nfreeze thaw/;
 
-use OurNet::BBS '1.55';
+use OurNet::BBS '1.6';
 use OurNet::BBSApp::Sync;
 
 $|++;
 
-no strict 'refs';
-*{'::DESTROY'} = sub {};
-
-local $SIG{__DIE__};
-local $SIG{__WARN__};
-
-if ($^O eq 'MSWin32' and eval 'use Win32; 1') {
-    $SIG{__DIE__} = sub {
-        Win32::MsgBox(
-            $_[0], 
-            $_[0] =~ /^\n/ ? &Win32::MB_ICONINFORMATION
-                           : &Win32::MB_ICONERROR,
-            "EBX v$main::VERSION-$main::REVISION",
-        ) unless $^S or $_[0] =~ /DESTROY/;
-    };
-
-    $SIG{__WARN__} = sub {
-        Win32::MsgBox(
-            $_[0], 
-            $_[0] =~ /\n$/ ? &Win32::MB_ICONEXCLAMATION
-                           : &Win32::MB_ICONINFORMATION,
-            "EBX v$main::VERSION-$main::REVISION",
-        ) unless $^S or $_[0] =~ /DESTROY/;
-    };
-}    
+END {
+    if ($^O eq 'MSWin32' and substr($0, -4) eq '.exe' and eval 'use Win32; 1') {
+	print "Press [Enter] to close this window.\n";
+	<STDIN>;
+    }
+}
 
 my %args;
-my $action = shift(@ARGV) if
-    @ARGV and substr($ARGV[0], 0, 1) ne '-';
+my $action = shift(@ARGV) if @ARGV and substr($ARGV[0], 0, 1) ne '-';
 
-getopts('m:o:u:dfglhaSFRP', \%args);
+getopts('adfghlm:o:r:u:AFPRS', \%args);
+delete $args{f} if IsWin32;
 
 $action ||= shift(@ARGV) || '';
 
 if ($args{h}) {
-    if ($^O eq 'MSWin32') {
+    if (IsWin32) {
         require Pod::Text;
 
 	my $source = $0;
 	$source  =~ s/\.exe$//i;
 	open(my $fh, $source) or die "cannot open $source for reading.\n";
-	use open IN => ':raw', OUT => ':crlf';
+
+	use open (IsWin32 ? (IN => ':raw', OUT => ':crlf') : ());
 
 	open my $fhout, '>', "$ENV{TEMP}/ebx.txt"
 	    or die "cannot open $ENV{TEMP}/ebx.txt for writing.\n";
@@ -160,12 +153,11 @@ if ($args{h}) {
 }
 
 my $bbs      = init_bbs();
-my $logfh    = IO::Handle->new();
-my $tmp_path = File::Spec->tmpdir();
+my $logfh    = IO::Handle->new;
+my $tmp_path = File::Spec->tmpdir;
 my $maxmsg   = $args{m} || 128;
 my $user     = $args{u} || $ENV{EBX_USER} || $ENV{USER} ||
-    (($^O eq 'MSWin32') ? $ENV{USERNAME} : getpwent());
-my $passphrase;
+	       (IsWin32 ? ($ENV{USERNAME} || Win32::LoginName) : getpwent());
 
 $OurNet::BBS::DEBUG = $OurNet::BBS::DEBUG = 1 if $args{d};
 
@@ -210,33 +202,26 @@ sub listboard {
 }
 
 sub setboard {
-    @ARGV = split(/[\s\t]+/, input("enter board(s) to setup mirror: "))
+    @ARGV = split(/[\s\,\t]+/, input("enter board(s) to setup mirror: "))
         unless @ARGV;
 
     die "no board(s) specified for setup.\n" unless @ARGV;
 
     foreach my $board (@ARGV) {
-	# XXX: is the function below desirable?
+	my $preserve;
+
 	if (exists $bbs->{boards}{$board}) {
-=begin comment
-	    my $inp = input("board exists. continue? [y/N/c(lear)]: ");
-	    next if $inp =~ /[Nn]/;
-	    if ($inp =~ /[Cc]/) {
-		my $artgrp = $bbs->{boards}{$board}{articles};
-		foreach my $key (keys(%{$artgrp})) {
-		    delete $artgrp->{$key};
-		};
-		warn "board <$board> cleared.\n";
-	    }
-=cut
-	}
-	elsif ($^O eq 'MSWin32') {
-	    my $path = find_bbs(
-		'c:/cygwin/home/melix', 'c:/program files/melix/home/melix'
+	    my $inp = input(
+		"board exists. preserve settings? [Y/n/p(urge board)]: "
 	    );
-	    
-	    system("$path/bin/sh.exe", '/home/melix/bin/stop.sh')
-	        if defined $path;
+
+	    $preserve = $inp =~ /[Yy]/;
+
+	    delete $bbs->{boards}{$board} if $inp =~ /[Pp]/;
+	    warn "board <$board> purged.\n";
+	}
+	elsif (IsWin32) {
+	    print "this change will take effect the next time you log in.\n";
 	}
 
 	modify_board(
@@ -248,7 +233,7 @@ sub setboard {
 	    input("enter remote board [$board]: ") || $board,
 	    input("enter local title [$board]: ") || $board,
 	    (input("do you want postback? [Y/n]: ") !~ /[Nn]/),
-	    input("sync after which article? [0]: "),
+	    $preserve ? undef : input("sync begins at which article? [0]: "),
 	);
     }
 
@@ -290,7 +275,7 @@ sub modify_board {
     my $brd = $bbs->{boards}{$lbrd};
     my $arv = $brd->{archives};
 
-    (($#{$arv} > 0) ? $arv->[1] : $arv->{''}) = {
+    (@{$arv} ? $arv->[0] : $arv->{''}) = {
 	header => {
 	    From    => "SYSOP (EBX v$main::VERSION-$main::REVISION)",
 	    Subject => '#',
@@ -316,7 +301,11 @@ __XMSGID__
 
 # create login/pass pair
 sub setpass {
-    my ($passring, $keyring) = get_keyring();
+    my ($passring, $keyring) = get_keyring(1);
+
+    @ARGV = split(/[\s\,\t]+/, input("enter sites(s) to setup passring: "))
+        unless @ARGV;
+
     die "usage: $0 setpass [<sites>...]\n" unless @ARGV;
 
     foreach my $site (@ARGV) {
@@ -366,8 +355,16 @@ sub delpass {
 
 # perform synchronization.
 sub sync {
-    my %remote  = sync_init();
     my $keyring = get_keyring() unless $args{g};
+    
+    do {
+    	do_sync($keyring);
+    } while ($args{r} and sleep $args{r});
+}
+
+sub do_sync {
+    my $keyring = shift;
+    my %remote  = sync_init();
 
     foreach my $entry (keys(%remote)) {
 	$logfh->fdopen(
@@ -394,7 +391,7 @@ sub sync {
 	) };
 
 	if ($@) {
-	    warn $@;
+	    print $@;
 	    exit if $args{f};
 	    next;
 	}
@@ -417,15 +414,26 @@ sub sync_start {
     my ($rbbs, $site, $entry) = @_;
     my $restart;
     my $param  = $site->{param};
-    my $lbrdag = $site->{lbrdag};
-    my $lbrdac = $site->{lbrdac};
+    my $lbrdag = $site->{lbrdag}; # local board article group
+    my $lbrdac = $site->{lbrdac}; # local board archive group
     my $rbrd   = eval { $rbbs->{boards} };
 
     if (!$rbrd or $@) { $logfh->print("cannot login ($@)"); return; }
 
     $logfh->print("=> ${entry}::$site->{param}{board}\n");
 
-    $rbrd = eval { $rbrd->{$param->{board}} };
+    $param->{board} = '~' if $param->{board} eq '!mailbox';
+    $param->{board} = "~$user" if $param->{board} eq '~';
+
+    my $is_mailbox = $param->{board} eq "~$user";
+
+    $rbrd = $is_mailbox
+	    ? eval { { articles => $rbbs->{users}{$user}{mailbox} } }
+	    : eval {
+	        exists $rbrd->{$param->{board}}
+	            ? $rbrd->{$param->{board}}
+	            : die "no such board: $param->{board}"
+	    };
 
     if ($@) { $logfh->print("cannot access board ($@)"); return; }
 
@@ -435,33 +443,40 @@ sub sync_start {
 	param      => $param,
 	backend    => $param->{backend},
 	logfh      => $logfh,
-	msgidkeep  => $args{m},
+	msgidkeep  => $maxmsg,
 	force_send => $args{S},
 	force_fetch=> $args{F},
 	force_none => $args{R},
-	recursive  => $args{a},
+	recursive  => $args{a} || $args{A},
 	clobber	   => !(defined($args{P})),
     });
 
-    $sync->do_fetch;
-
-    if ($args{a}) {
-	# sync archive!
-	$sync->{param}   = {
-	    %{$param}, rseen => 0, lseen => undef, force_fetch => 1,
-	};
-	$sync->{artgrp}  = $lbrdac,
-	$sync->{rartgrp} = $rbrd->{archives},
-	$sync->do_fetch;
-	$sync->{param}   = $param;
+    unless ($args{A}) {
+	$sync->do_fetch('articles');
+	$restart = $sync->do_send unless ($args{g} or $is_mailbox);
     }
 
-    $restart = $sync->do_send() unless ($args{g});
+    if (($args{a} || $args{A}) and !$is_mailbox
+        and eval { $sync->{rartgrp} = $rbrd->{archives} }
+    ) {
+	# sync archive!
+	my ($rseen, $lseen) = @{$sync->{param}}{qw/rseen lseen/};
+
+	@{$sync->{param}}{qw/rseen lseen/} = (
+	    @{$param->{msgids}{'archive'}} ? -$maxmsg : 0, 
+	    undef,
+	);
+
+	$sync->{artgrp}  = $lbrdac;
+	$sync->do_fetch('archives');
+	
+	@{$sync->{param}}{qw/rseen lseen/} = ($rseen, $lseen);
+    }
 
     update_config($site->{config}, $site->{param});
 
-    $lbrdag->purge();
-    $rbrd->purge();
+    $lbrdag->purge;
+    $rbrd->purge unless $is_mailbox;
 
     return $restart;
 }
@@ -471,9 +486,8 @@ sub sync_init {
     my %remote;
     my %synclist = map { $_ => 1 } @ARGV;
     my $boards = $bbs->{boards};
-    my @sync = (index("@ARGV", '@') > -1) 
-	? grep { exists $boards->{$_} } @ARGV
-	: keys(%$boards);
+    my @sync = (!%synclist || index("@ARGV", '@') > -1) ?
+	keys(%$boards) : grep { exists $boards->{$_} } @ARGV;
 
     print "scheduled for sync:";
 
@@ -526,7 +540,6 @@ sub get_login {
 
     if (exists $keyring->{$rhost}) {
 	my ($login, $pass) = split(/:/, $keyring->{$rhost}, 2);
-	$pass ||= $passphrase if $backend eq 'OurNet';
 	return ($login, $pass);
     }
     elsif ($backend eq 'BBSAgent') {
@@ -535,24 +548,81 @@ sub get_login {
 
         return 'guest';
     } elsif ($backend eq 'OurNet') {
-	return ($user, $passphrase);
+	return $user;
     }
+
+    return ();
 }
 
 
+sub make_home {
+    my $path = '';
+
+    if (IsWin32 and eval 'use Win32::TieRegistry; 1') {
+        my $Registry = $Win32::TieRegistry::Registry;
+        $path = $Registry->{'HKEY_LOCAL_MACHINE\Software\Elixir\ebx\\'}->{''} . "\\";
+    }
+    else {
+        return $ENV{HOME} if $ENV{HOME};
+    }
+    
+    $path .= "~$user";
+
+    mkdir $path unless -e $path;
+    return $path;
+}
+
+sub init_keyring {
+    return if -e $_[0]->{keyfile};
+
+    print << ".";
+================================================================
+This is the first time you're accessing your passring. You'll be
+prompted to enter a 'passphrase', which is used to protect your
+login information. Future accesses to the passring will require
+you to enter the same passphrase.
+================================================================
+.
+
+    for (1 .. 10) {
+	my $pass = input("enter passphrase for $user: ", 1);
+	next unless length($pass);
+
+	return $pass if $pass eq input("verify passphrase: ", 1);
+	print "inputs mismatch, please try again.\n";
+    }
+    
+    die "failed too many times, giving up.\n";
+}
+
 sub get_keyring {
     require OurNet::BBSApp::PassRing;
+    my $create = shift;
 
     my $passring = OurNet::BBSApp::PassRing->new(
-	($ENV{EBX_HOME} || $ENV{HOME} || '.').'/.ebx.keyring', $user
+	($ENV{EBX_HOME} || make_home()).
+	'/.ebx.keyring', $user
     );
 
+    unless (-e $passring->{keyfile} || $create) {
+	print << ".";
+================================================================
+Since you haven't initialized your passring, no connections will
+be authenticated. Please use 'ebx setpass' to create a passring.
+================================================================
+.
+        return {};
+    }
+
     my $keyring;
+    my $initpass = init_keyring($passring) unless -e $passring->{keyfile};
 
     for (1..3) {
-	$passphrase = input("enter passphrase for $user: ", 1);
+	my $passphrase = $initpass || input("enter passphrase for $user: ", 1);
+
 	$keyring = eval {$passring->get_keyring($passphrase)};
-	warn "can't get keyring; check passphrase and try again ($@).\n" if $@;
+
+	warn "can't get passring; check passphrase and try again.\n" if $@;
 	last unless $@;
     }
 
@@ -567,7 +637,7 @@ sub read_config {
     my $msgid  = '';
     my %param;
 
-    foreach my $line (split("\n", ($art->{body} || ''))) {
+    foreach my $line (split("\015?\012", ($art->{body} || ''))) {
 	if ($xmsgid == 1) {
 	    $msgid .= $line;
 	}
@@ -581,14 +651,14 @@ sub read_config {
 
     if ($msgid) {
 	$param{msgids} = thaw(uncompress(decode_base64($msgid)));
-	if ($param{msgids} and $param{msgids}[0] and
-	    substr($param{msgids}[0], 0, 1) ne '<'
-	) {
+	    
+	if (ref($param{msgids}) eq 'ARRAY') {
 	    # transition script
 	    foreach my $msgid (@{$param{msgids}}) {
 		next unless defined $msgid;
 		$msgid = "<$msgid>" if substr($msgid, 0, 1) ne '<';
 	    }
+	    $param{msgids} = { articles => $param{msgids} };
 	}
     }
 
@@ -598,8 +668,13 @@ sub read_config {
 sub update_config {
     my ($art, $param) = @_;
 
-    $param->{msgids} = [@{$param->{msgids}}[-(($maxmsg) * 2) .. -1]]
-	if $#{$param->{msgids}} > ($maxmsg) * 2;
+    foreach my $dir (keys(%{$param->{msgids}})) {
+	next if $dir eq '__BTIME__';
+
+        $param->{msgids}{$dir} = [
+	    @{$param->{msgids}{$dir}}[-(($maxmsg) * 2) .. -1]
+	] if $#{$param->{msgids}{$dir}} > ($maxmsg) * 2;
+    }    
 
     my $newmsg = encode_base64(compress(nfreeze($param->{msgids})));
     my @lines  = grep {!m/^# /} split("\n", $art->{body});
@@ -654,7 +729,7 @@ sub init_bbs {
 
     $backend = $ENV{EBX_BACKEND} || 'MELIX';
     $bbsroot = $ENV{EBX_BBSROOT} || (
-	($^O eq 'MSWin32') ? find_bbs(
+	IsWin32 ? find_bbs(
 	    'c:/cygwin/home/melix', 'c:/program files/melix/home/melix'
 	) : find_bbs('/home/melix', '/home/bbs')
     );
@@ -673,8 +748,7 @@ sub init_bbs {
 sub find_bbs {
     local $@;
     
-    if ($^O eq 'MSWin32' and eval 'use Win32::TieRegistry; 1') {
-    	no warnings 'once';
+    if (IsWin32 and eval 'use Win32::TieRegistry; 1') {
         my $Registry = $Win32::TieRegistry::Registry;
 
 	my $binary_path = (
@@ -687,7 +761,7 @@ sub find_bbs {
     }
 
     foreach my $path (@_, '.') {
-	return $path if -d $path and -e "$path/.BRD";
+	return $path if -d $path and (-e "$path/.BRD" or -e "$path/.USR");
     }
 
     die "cannot find Melix BBS's .BRD file in path: (@_).\n"
@@ -696,6 +770,18 @@ sub find_bbs {
 1;
 
 __END__
+
+=head1 TODO
+
+=over
+
+=item
+
+Background mode, externally controlled mode.
+
+=item
+
+ebx setboard should check board name legnth.
 
 =head1 AUTHORS
 

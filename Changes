@@ -1,4 +1,271 @@
 ____________________________________________________________________________
+[  1691] By: clkao@claptop                         on 2001/09/04 06:04:53
+	Log: this be ebx 0.86
+       Path: .
+	   ! Makefile.PL ebx
+____________________________________________________________________________
+[  1655] By: clkao@claptop                         on 2001/09/02 00:22:28
+	Log: a bugfix todo.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1642] By: autrijus@autribsd                     on 2001/09/01 17:03:05
+	Log: * fixes archive sync/update rseen bug
+	     * enable perserve option when set existing boards.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1640] By: autrijus@WhiteG                       on 2001/09/01 15:13:44
+	Log: * fixed bbscomd shortcut (Kyo)
+	     * fixed large archive sync (DEBBY, clkao)
+	     * implements -r for repeated syncs
+	     * s/keyring/passring/ in messages
+	     * no longer invokes stop.sh on win32; show hints instead
+       Path: build
+	   ! ebx.nsi
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1637] By: autrijus@autribsd                     on 2001/09/01 02:32:12
+	Log: * slightly more helpful hint messages
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1633] By: autrijus@whitegnote                   on 2001/08/31 04:47:45
+	Log: * escape characters
+       Path: build
+	   ! ebx.nsi
+____________________________________________________________________________
+[  1632] By: autrijus@whitegnote                   on 2001/08/31 04:42:08
+	Log: * bumps version
+	     * fixes incorrect prompt
+       Path: build
+	   ! ebx.nsi
+____________________________________________________________________________
+[  1631] By: clkao@claptop                         on 2001/08/31 04:39:07
+	Log: don't initialize passring unless in setpass.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1626] By: clkao@claptop                         on 2001/08/31 03:43:56
+	Log: fix the do_send optimization in the scenario of no local
+	     articles.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1625] By: clkao@claptop                         on 2001/08/31 03:36:45
+	Log: * prompt for initial passphrase setting.
+	     * don't use passphrase for any other purpose.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1613] By: whiteg@whitegnote                     on 2001/08/31 01:22:24
+	Log: * eliminate MsgBox on win32.
+	     * no longer looks for $ENV{HOME} on win32.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1612] By: clkao@claptop                         on 2001/08/31 01:06:40
+	Log: Optimize the unnecessary overwhelming local article check when
+	     ebx sending.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1610] By: autrijus@whitegnote                   on 2001/08/30 03:56:08
+	Log: * uninstalls Passring shortcuts now.
+       Path: build
+	   ! ebx.nsi
+____________________________________________________________________________
+[  1609] By: autrijus@whitegnote                   on 2001/08/30 03:53:43
+	Log: * only do archives to those backends that supports it.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1608] By: autrijus@whitegnote                   on 2001/08/30 03:40:01
+	Log: * fixes local hash element bug
+	     * -A is now supported
+	     * implement archive updates into msgid
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1603] By: autrijus@autribsd                     on 2001/08/30 01:09:15
+	Log: * implement btime-based archive updating
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1602] By: autrijus@whitegnote                   on 2001/08/29 23:36:17
+	Log: * uses {date} as a measure of article id
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1601] By: autrijus@whitegnote                   on 2001/08/29 23:35:52
+	Log: * really sync archive by default now.
+       Path: build
+	   ! ebx.nsi
+____________________________________________________________________________
+[  1594] By: autrijus@whitegnote                   on 2001/08/29 20:22:00
+	Log: * fixes various typos
+	     * Sync.pm now displays padded spaces representing archive
+	     depth
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1593] By: autrijus@whitegnote                   on 2001/08/29 05:25:07
+	Log: * implements -A (archives only)
+	     * should win32 sync archive by default now?
+       Path: build
+	   ! ebx.nsi
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1592] By: autrijus@whitegnote                   on 2001/08/29 04:34:35
+	Log: * disables -f on win32
+	     * fixes 'shared keyring' bug.
+       Path: build
+	   ! ebx.nsi
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1589] By: clkao@claptop                         on 2001/08/29 01:30:27
+	Log: ebx todo.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1585] By: autrijus@whitegnote                   on 2001/08/29 00:48:40
+	Log: * delete redundant files
+       Path: build
+	   ! ebx.nsi makeebx.bat
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1583] By: autrijus@whitegnote                   on 2001/08/28 08:12:58
+	Log: * mailbox fixes
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1582] By: autrijus@whitegnote                   on 2001/08/28 07:37:05
+	Log: * oops.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1580] By: autrijus@whitegnote                   on 2001/08/28 06:53:20
+	Log: * do_fetch now expects $dir as its argument
+	     * $param->{msgid} is now a hash with $dir as keys
+	     * fixed various obiwan errors.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1570] By: autrijus@autribsd                     on 2001/08/27 01:18:18
+	Log: * fixed User tie for M3
+	     * ebx will not attempt to post back to archive now
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1568] By: rg70@rgmob                            on 2001/08/26 20:40:09
+	Log: * 5.7.2-blead breaks regex with OurNet
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1557] By: autrijus@whitegnote                   on 2001/08/24 02:55:16
+	Log: * ebx nsi bump
+       Path: build
+	   ! ebx.nsi
+____________________________________________________________________________
+[  1550] By: autrijus@autribsd                     on 2001/08/23 04:47:47
+	Log: * Crypt::Rijndael is now the default passring cipher.
+       Path: .
+	   ! Makefile.PL
+____________________________________________________________________________
+[  1545] By: clkao@claptop                         on 2001/08/20 14:38:23
+	Log: fix null synclist bug
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1541] By: clkao@claptop                         on 2001/08/19 03:21:57
+	Log: fix @site in commandline
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1540] By: clkao@claptop                         on 2001/08/19 03:10:05
+	Log: fix $user detection.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1538] By: autrijus@autribsd                     on 2001/08/19 02:41:41
+	Log: * fix some typos in ebx.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1537] By: autrijus@autribsd                     on 2001/08/19 02:19:31
+	Log: * rseen now means 'the beginning of sync' instead of 'last
+	     synced'.
+	     * fixed OBJECT context fetch of Client/Server modules.
+	     * NNTP now reports FETCHSIZE with last + 1. 
+	     * added tests.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1533] By: autrijus@autribsd                     on 2001/08/18 01:10:37
+	Log: * obiwan in message.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1531] By: autrijus@autribsd                     on 2001/08/18 01:03:39
+	Log: * fix for NNTP backend; full of YASBs.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1529] By: autrijus@autribsd                     on 2001/08/17 23:49:14
+	Log: * ebx update for OurNet::BBS v1.6, mostly obiwan errors.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1517] By: autrijus@autribsd                     on 2001/08/06 23:57:20
+	Log: * do not perform various impossible tasks with mailbox.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1515] By: autrijus@autribsd                     on 2001/08/06 23:24:25
+	Log: * experimental mailbox support via '!mailbox' board
+	     * fixed usergroup so only that user gets to see the mailbox
+	     * article.pm will add reasonable header
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1514] By: autrijus@autribsd                     on 2001/08/06 22:32:54
+	Log: * updated dependency to OurNet::BBS v1.56
+	     * updated the command line option documents
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1513] By: autrijus@autribsd                     on 2001/08/06 21:41:37
+	Log: * bumped up version number
+	     * setpass now prompts sites if no @ARGV
+	     * stop.sh launching on win9x should work now.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1512] By: autrijus@autribsd                     on 2001/08/06 21:36:32
+	Log: * fixed broken GnuPG connectivity
+	     * Symmetry subclass no logner needed
+       Path: .
+	   ! PassRing.pm
+____________________________________________________________________________
+[  1511] By: autrijus@autribsd                     on 2001/08/06 20:20:02
+	Log: * yasb...
+       Path: .
+	   ! PassRing.pm
+____________________________________________________________________________
+[  1510] By: autrijus@autribsd                     on 2001/08/06 20:08:41
+	Log: * Crypt::Rijndael support for PassRing. untested on win32.
+       Path: .
+	   ! PassRing.pm
+____________________________________________________________________________
+[  1484] By: autrijus@autricvic                    on 2001/07/23 01:32:16
+	Log: * changes update
+       Path: .
+	   ! Changes
+____________________________________________________________________________
 [  1480] By: autrijus@whitegnote                   on 2001/07/23 01:13:40
 	Log: * this be ebx 0.84.
 	     * selective listboard implemented.

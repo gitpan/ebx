@@ -1,16 +1,15 @@
 # $File: //depot/ebx/PassRing.pm $ $Author: autrijus $
-# $Revision: #12 $ $Change: 1464 $ $DateTime: 2001/07/18 01:54:06 $
+# $Revision: #15 $ $Change: 1512 $ $DateTime: 2001/08/06 21:36:32 $
 
 package OurNet::BBSApp::PassRing;
 
-$VESION = '0.3';
+$VESION = '0.4';
 
 use strict;
 
 use IO::Handle;
-use GnuPG::Interface;
-use Storable qw/nfreeze thaw/;
-use fields qw/gnupg keyfile who/;
+use Storable qw/nfreeze thaw nstore retrieve/;
+use fields qw/gnupg passphrase keyfile who/;
 use open IN => ':raw', OUT => ':raw';
 
 # XXX: Win32 GnuPG::Interface is *absolutely* broken!
@@ -26,10 +25,19 @@ if ($^O eq 'MSWin32') {
 sub new {
     my ($class, $keyfile, $who) = @_;
     my $self = fields::new($class);
-    my $gpg  = $self->{gnupg} = GnuPG::Interface->new();
 
     $self->{keyfile} = $keyfile;
     $self->{who}     = $who;
+
+    return $self;
+}
+
+sub init_gnupg {
+    my $self = shift;
+
+    require GnuPG::Interface;
+
+    my $gpg  = $self->{gnupg} = GnuPG::Interface->new();
 
     $gpg->options->hash_init(
 	armor	     => 0, 
@@ -37,21 +45,52 @@ sub new {
     );
     $gpg->options->meta_interactive(0);
     $gpg->options->push_recipients($self->{who});
-    
-    return $self;
 }
 
 sub get_keyring {
     my ($self, $pass) = @_;
+    $self->{passphrase} = $pass if defined $pass;
+
+    my $frozen;
+
+    open my $keyfile, $self->{keyfile};
+    read($keyfile, $frozen, 3);
+    close $keyfile;
+
+    $frozen = $frozen eq 'pst' ? retrieve($self->{keyfile}) : {};
+
+    my $cipher = $frozen->{cipher} ||= 'GnuPG'; # for bugward compatibility
+
+    return $self->thaw_rijndael($frozen) if $cipher eq 'Rijndael';
+    return $self->thaw_gnupg($frozen)    if $cipher eq 'GnuPG';
+}
+
+sub thaw_rijndael {
+    my ($self, $frozen) = @_;
+
+    require Crypt::Rijndael;
+    require Digest::MD5;
+
+    return thaw(Crypt::Rijndael->new(
+	Digest::MD5::md5_hex($self->{passphrase}),
+	&Crypt::Rijndael::MODE_CBC,
+    )->decrypt($frozen->{data}));
+}
+
+sub thaw_gnupg {
+    my ($self, $frozen) = @_;
 
     return thaw(scalar( 
-	`echo $pass| gpg -d --no-tty --passphrase-fd=0 $self->{keyfile}`
+	`echo $self->{passphrase} | gpg -d --no-tty --passphrase-fd=0 $self->{keyfile}`
     )) if $^O eq 'cygwin'; # XXX: kludge, fixme.
 
     local $/;
     return unless -e $self->{keyfile};
+
     open KEY, $self->{keyfile} 
 	or die "can't open keyfile $self->{keyfile}: $!";
+
+    $self->init_gnupg;
 
     my ($input, $output, $stderr, $passphrase_fd) = ( 
 	IO::Handle->new,
@@ -70,7 +109,7 @@ sub get_keyring {
     my $pid = $self->{gnupg}->decrypt( handles => $handles );
 
     # Now we write to the input of GnuPG
-    print $passphrase_fd $pass;
+    print $passphrase_fd $self->{passphrase};
     close $passphrase_fd;
 
     my $buf = <KEY>;
@@ -90,8 +129,35 @@ sub get_keyring {
     return thaw($plaintext);
 }
 
-sub save_keyring {
+sub store_rijndael {
     my ($self, $keyring) = @_;
+    my $frozen = nfreeze($keyring);
+    $frozen .= "\x00" x ((32 - length($frozen) % 32) % 32);
+
+    require Digest::MD5;
+    require Crypt::Rijndael;
+
+    nstore({
+	data	=> Crypt::Rijndael->new(
+	    Digest::MD5::md5_hex($self->{passphrase}),
+	    &Crypt::Rijndael::MODE_CBC,
+	)->encrypt($frozen),
+	cipher	=> 'Rijndael'
+    }, $self->{keyfile});
+}
+
+sub save_keyring {
+    my ($self, $keyring, $cipher) = @_;
+    $cipher ||= 'Rijndael';
+
+    return $self->store_rijndael($keyring) if $cipher eq 'Rijndael';
+    return $self->store_gnupg($keyring)    if $cipher eq 'GnuPG';
+}
+
+sub store_gnupg {
+    my ($self, $keyring) = @_;
+
+    $self->init_gnupg;
 
     my ($input, $output, $stderr) = ( 
 	IO::Handle->new,
@@ -122,3 +188,4 @@ sub save_keyring {
 }
 
 1;
+

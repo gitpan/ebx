@@ -13,9 +13,10 @@ WriteMakefile(
     BINARY_LOCATION => 'x86/ebx.tar.gz',
 
     PREREQ_PM       => {
-	'OurNet::BBS'		=> '1.53',       # BBSApp
+	'OurNet::BBS'		=> '1.6',        # BBSApp
 	'Mail::Address'         => '1.17',       # Sync
 	'GnuPG::Interface'      => '0.31',       # PassRing
+	'Crypt::Rijndael'       => '0.04',       # PassRing
 	'Term::ReadKey'		=> '2.14',       # ebx
 	'MIME::Base64'		=> '2.11',       # ebx
 	'Compress::Zlib'	=> '1.08',       # ebx
