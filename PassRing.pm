@@ -1,5 +1,5 @@
 # $File: //depot/ebx/PassRing.pm $ $Author: autrijus $
-# $Revision: #11 $ $Change: 1220 $ $DateTime: 2001/06/19 04:02:45 $
+# $Revision: #12 $ $Change: 1464 $ $DateTime: 2001/07/18 01:54:06 $
 
 package OurNet::BBSApp::PassRing;
 
@@ -11,14 +11,16 @@ use IO::Handle;
 use GnuPG::Interface;
 use Storable qw/nfreeze thaw/;
 use fields qw/gnupg keyfile who/;
+use open IN => ':raw', OUT => ':raw';
 
 # XXX: Win32 GnuPG::Interface is *absolutely* broken!
 # XXX: we might need to use symmetric key, say Crypt::* here.
 
 if ($^O eq 'MSWin32') {
+    *POSIX::F_SETFD       = sub { 2 };
     *POSIX::STDERR_FILENO = sub { 2 };
     *POSIX::STDOUT_FILENO = sub { 1 };
-    *POSIX::STDIN_FILENO = sub { 0 };
+    *POSIX::STDIN_FILENO  = sub { 0 };
 }
 
 sub new {

@@ -1,10 +1,10 @@
 # $File: //depot/ebx/Sync.pm $ $Author: autrijus $
-# $Revision: #50 $ $Change: 1243 $ $DateTime: 2001/06/20 05:47:11 $
+# $Revision: #60 $ $Change: 1464 $ $DateTime: 2001/07/18 01:54:06 $
 
 package OurNet::BBSApp::Sync;
 require 5.006;
 
-$VERSION = '0.83';
+$VERSION = '0.84';
 
 use strict;
 use integer;
@@ -30,20 +30,21 @@ OurNet::BBSApp::Sync - Sync between BBS article groups
 	    board   => 'board2',
 	    lmsgid  => '',
 	    msgids  => [
-		'20010610005743.6c+7nbaJ5I63v5Uq3cZxZw@geb.elixus.org',
-		'20010608213307.suqAZQosHH7LxHCXVi1c9A@geb.elixus.org',
+		'<20010610005743.6c+7nbaJ5I63v5Uq3cZxZw@geb.elixus.org>',
+		'<20010608213307.suqAZQosHH7LxHCXVi1c9A@geb.elixus.org>',
             ]
         },
         force_fetch => 0,
 	force_send  => 0,
 	force_none  => 0,
+	recursive   => 0,
 	clobber	    => 1,
         backend     => 'BBSAgent',
         logfh       => \*STDOUT,
     });
 
-    $sync->do_fetch();
-    $sync->do_send();
+    $sync->do_fetch;
+    $sync->do_send;
 
 =head1 DESCRIPTION
 
@@ -63,7 +64,12 @@ Lots. Please report bugs as much as possible.
 =cut
 
 use fields qw/artgrp rartgrp param backend logfh msgidkeep hostname
-              force_send force_fetch force_none clobber/;
+              force_send force_fetch force_none clobber recursive/;
+
+use constant SKIPPED_HEADERS =>
+    ' name header xid id xmode idxfile time mtime btime basepath'.
+    ' dir hdrfile recno ';
+use constant SKIPPED_SIGILS => ' ¡» ¡· ¡º ';
 
 sub new {
     my $self = OurNet::BBS::Base::TIEHASH(@_); # save time
@@ -96,7 +102,11 @@ sub do_retrack {
     return $low - 1 if $low > $high;
 
     my $try = ($low + $high) / 2;
-    my $msgid = eval {$rid->[$try]{header}{'Message-ID'}};
+    my $msgid = eval {
+	my $art = $rid->[$try];
+	UNIVERSAL::isa($art, 'UNIVERSAL') 
+	    ? $art->{header}{'Message-ID'} : undef;
+    };
 
     return (($msgid && nth($myid, $msgid) == -1)
         ? $low - 1 : $low) if $low == $high;
@@ -160,19 +170,21 @@ sub do_send {
 
     return if ($lseen >= $#{$artgrp});
 
-    while ($lseen++ < $#{@$artgrp}) {
+    while ($lseen++ < $#{$artgrp}) {
         my $art = eval { $artgrp->[$lseen] } or next;
+        next unless defined $art->{title}; # sanity check
 
         next unless (
-	    $self->{force_send} or
-	    index(($art->{header}{'X-Originator'} || ''),  
-		  "$rbrdname.board\@$param->{remote}") == -1
-	    and ($backend ne 'NNTP' or !$art->{header}{Path})
+	    $self->{force_send} or (
+		index(($art->{header}{'X-Originator'} || ''),  
+		    "$rbrdname.board\@$param->{remote}") == -1 and
+		($backend ne 'NNTP' or !$art->{header}{Path})
+	    )
 	);
 
 	$logfh->print("     [send] #$lseen: posting $art->{title}\n");
 
-	my %xart = (header => { %{$art->{header}} });
+	my %xart = ( header => { %{$art->{header}} } );
 	safe_copy($art, \%xart);
 
 	if ($self->{clobber}) {
@@ -187,7 +199,7 @@ sub do_send {
 
 	if (index(' NNTP MELIX DBI ', $backend) > -1
 	    or ($backend eq 'OurNet' 
-	        and index(' NNTP MELIX DBI ', $rartgrp->backend()) > -1))
+	        and index(' NNTP MELIX DBI ', $rartgrp->backend) > -1))
 	{
 	    $xart{header}{'X-Originator'} = $xorig;
 	}
@@ -203,7 +215,7 @@ sub do_send {
 	eval { $rartgrp->{''} = \%xart } unless $self->{force_none};
 
 	if ($@) {
-	    my $error = $@; chomp $error;
+	    chomp(my $error = $@);
 	    $logfh->print("     [send] #$lseen: can't post ($error)\n");
 	}
 	else {
@@ -216,15 +228,15 @@ sub do_send {
 }
 
 sub do_fetch {
-    my $self = $_[0];
-    my $artgrp  = $self->{artgrp};
-    my $rartgrp = $self->{rartgrp};
-    my $param   = $self->{param};
-    my $backend = $self->{backend};
-    my $logfh   = $self->{logfh};
+    my $self	= $_[0];
+    my $artgrp	= $self->{artgrp};
+    my $rartgrp	= $self->{rartgrp};
+    my $param	= $self->{param};
+    my $backend	= $self->{backend};
+    my $logfh	= $self->{logfh};
 
     my ($first, $last, $rseen);
-    my $rbrdname = $rartgrp->board(); # remote board name
+    my $rbrdname = $rartgrp->board; # remote board name
 
     if ($backend eq 'NNTP') {
 	$first	= $rartgrp->first;
@@ -245,10 +257,13 @@ sub do_fetch {
     $logfh->print("    [fetch] #$param->{rseen}: checking\n");
 
     if ($#{$param->{msgids}} >= 0) {
-	$rseen = $self->retrack($rartgrp, $param->{msgids}, $rseen)
-	    if $rseen and (eval {
-		$rartgrp->[$rseen]{header}{'Message-ID'}
-	    } || '') ne $param->{msgids}[-1];
+	if ($rseen and my $msgid = eval {
+	    $rartgrp->[$rseen]{header}{'Message-ID'}
+	}) {
+	    $msgid = "<$msgid>" if substr($msgid, 0, 1) ne '<';
+	    $rseen = $self->retrack($rartgrp, $param->{msgids}, $rseen)
+	        if $msgid ne $param->{msgids}[-1];
+	}
     }
     else { # init
 	my $rfirst = (($rseen - $first) > $self->{msgidkeep}) 
@@ -261,7 +276,7 @@ sub do_fetch {
 
 	    eval {
 		my $art = $rartgrp->[$i++];
-		$art->refresh();
+		$art->refresh;
 		push @{$param->{msgids}}, $art->{header}{'Message-ID'};
 	    };
 
@@ -281,7 +296,7 @@ sub do_fetch {
 
     return if $rseen >= $last;
 
-    my $xorig = $artgrp->board().".board\@$self->{hostname}";
+    my $xorig = $artgrp->board.".board\@$self->{hostname}";
 
     while ($rseen < $last) {
         my $art;
@@ -290,7 +305,7 @@ sub do_fetch {
 
 	eval { 
 	    $art = $rartgrp->[$rseen+1];
-	    $art->refresh();
+	    $art->refresh;
 	};
 
 	if ($@) {
@@ -298,11 +313,39 @@ sub do_fetch {
 	    ++$rseen; next;
         }
 
-	my $msgid = $art->{header}{'Message-ID'}; # XXX voodoo refresh
+	my ($msgid, $rhead);
 
-	$art = $art->SPAWN;
+	if ($art->REF =~ m|ArticleGroup|) {
+	    # not really a message so won't have MSGID; let's fake one here.
+	    my $time = $art->mtime;
 
-	my $rhead = $art->{header};
+	    $art = {
+		title  => $art->{title},
+		author => $art->{author},
+	    };
+
+	    $msgid = OurNet::BBS::Utils::get_msgid(
+		$time,
+		$art->{author},
+		$art->{title},
+		$rbrdname,
+		$param->{remote},
+	    );
+	}
+	else {
+	    $msgid = $art->{header}{'Message-ID'}; # XXX voodoo refresh
+
+	    $art = $art->SPAWN;
+	    $rhead = $art->{header};
+
+	    if ($rhead->{'Message-ID'} ne $msgid) {
+		# something's very, very wrong
+		print "... lacks Message-ID, skipped\n";
+		++$rseen; next;
+	    }
+
+	    $msgid = "<$msgid>" if substr($msgid, 0, 1) ne '<'; # legacy
+	}
 
 	if ($self->{force_fetch} or
 	    rindex($art->{body}, "X-Originator: $xorig") == -1 and
@@ -311,34 +354,65 @@ sub do_fetch {
 	) {
 	    push @{$param->{msgids}}, $msgid;
 
-	    my %xart = (header => $rhead); # maximal cache
-	    safe_copy($art, \%xart);
+	    my (%xart, $xartref);
 
-	    $xart{header}{'X-Originator'} = 
-		"$rbrdname.board\@$param->{remote}" if $backend ne 'NNTP';
+	    if ($rhead->{'Message-ID'}) {
+		%xart = (header => $rhead); # maximal cache
+		safe_copy($art, $xartref = \%xart);
 
-	    # the code below makes us *really* want a ??= operator.
-            $xart{body}  = "\n" unless defined $xart{body};
-            $xart{title} = " "  unless defined $xart{title};
-	    $xart{body} =~ s|^((?:: )+)|'> ' x (length($1)/2)|gem;
+		# the code below makes us *really* want a ??= operator.
+		unless (defined $xart{body} and 
+		        defined $xart{header}{Subject}) {
+		    print "... article empty, skipped\n";
+		    ++$rseen; next;
+		}
 
-	    if ($self->{clobber} and $backend ne 'NNTP') {
-		$xart{header}{From} = 
-		    "$xart{author}.bbs\@$param->{remote}" . 
-		    ($xart{nick} ? " ($xart{nick})" : '')
-			unless $xart{header}{From} =~ /^[^\(]+\@/;
-		$xart{author} .= "." unless !$xart{author}
-		    or substr($xart{author}, -1) eq '.';
+		$xart{header}{'X-Originator'} = 
+		    "$rbrdname.board\@$param->{remote}" if $backend ne 'NNTP';
+
+		$xart{body} =~ s|^((?:: )+)|'> ' x (length($1)/2)|gem;
+		$xart{nick} = $1 if $xart{nick} =~ m/^\s*\((.*)\)$/;
+
+		if ($self->{clobber} and $backend ne 'NNTP') {
+		    $xart{author} .= "." unless !$xart{author}
+			or substr($xart{author}, -1) eq '.';
+		    $xart{header}{From} = 
+			"$xart{author}bbs\@$param->{remote}" . 
+			($xart{nick} ? " ($xart{nick})" : '')
+			    unless $xart{header}{From} =~ /^[^\(]+\@/;
+		}
+		elsif (0) { # XXX: not yet supported
+		    $xart{header}{'Reply-To'} = 
+			"$xart{author}.bbs\@$param->{remote}" . 
+			(defined $xart{nick} ? " ($xart{nick})" : '')
+			    unless $xart{header}{From} =~ /^[^\(]+\@/;
+		}
+
+		$artgrp->{''} = $xartref unless $self->{force_none};
+		$logfh->print(" $xart{title}\n");
 	    }
-	    elsif (0) { # XXX: not yet supported
-		$xart{header}{'Reply-To'} = 
-		    "$xart{author}.bbs\@$param->{remote}" . 
-		    (defined $xart{nick} ? " ($xart{nick})" : '')
-			unless $xart{header}{From} =~ /^[^\(]+\@/;
+	    else { # ArticleGroup code
+		%xart = %{$art};
+
+		# strip down unnecessary sigils
+		$xart{title} = substr($xart{title}, 3)
+		    if index(SKIPPED_SIGILS, substr($xart{title}, 0, 3)) > -1;
+
+		$xartref = bless(\%xart, $artgrp->module('ArticleGroup'));
+
+		$artgrp->{''} = $xartref unless $self->{force_none};
+		$logfh->print(" $xart{title}\n");
+
+		if ($self->{recursive}) {
+		    $self->{artgrp}  = $artgrp->[-1];
+		    $self->{artgrp}  = $artgrp->[-1];
+		    $self->{rartgrp} = $art = $rartgrp->[$rseen+1];
+		    $self->do_fetch;
+		    $self->{artgrp}  = $artgrp;
+		    $self->{rartgrp} = $rartgrp;
+		}
 	    }
 
-            $artgrp->{''} = \%xart unless $self->{force_none};
-            $logfh->print(" $xart{title}\n");
         }
         else {
             $logfh->print("... duplicate, skipped\n");
@@ -358,7 +432,7 @@ sub safe_copy {
 
     while (my ($k, $v) = each (%{$from})) {
 	$to->{$k} = $v if index(
-	    ' name header id xmode time mtime ', " $k "
+	    SKIPPED_HEADERS, " $k "
 	) == -1;
     }
 }

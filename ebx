@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 # $File: //depot/ebx/ebx $ $Author: autrijus $
-# $Revision: #44 $ $Change: 1243 $ $DateTime: 2001/06/20 05:47:11 $
+# $Revision: #61 $ $Change: 1480 $ $DateTime: 2001/07/23 01:13:40 $
 
-$VERSION  = '0.83';
-$REVISION = "rev$1\[\@$2\]" 
-    if ('$Revision: #44 $ $Change: 1243 $' =~ /(\d+)[^\d]+(\d+)/);
+$VERSION  = '0.84';
+$REVISION = "rev$1\[\@$2\]"
+    if ('$Revision: #61 $ $Change: 1480 $' =~ /(\d+)[^\d]+(\d+)/);
 
 =head1 NAME
 
@@ -12,14 +12,14 @@ ebx - Elixir BBS Exchange Suite
 
 =head1 SYNOPSIS
 
-    % ebx sync [-lgdfh] [-m <maxmsg>] [-o [logfile]] ] 
+    % ebx sync [-lgdfh] [-m <maxmsg>] [-o [logfile]] ]
                [-u <user>] [<boards>...]
     % ebx <set|del|list>pass [-r] [-l] [-d] [-u <user>]
-    % ebx setboard [<boards>...]
+    % ebx <set|list>board [<boards>...]
 
 =head1 DESCRIPTION
 
-This script synchronizes your local BBS's storage via the BBSCOM 
+This script synchronizes your local BBS's storage via the BBSCOM
 settings configured within.
 
 =head1 COMMANDS
@@ -31,6 +31,7 @@ settings configured within.
     listpass		list current keyring
 
     setboard		set up boards for mirroring
+    listboard		list board settings
 
 =head1 OPTIONS
 
@@ -41,10 +42,11 @@ settings configured within.
     -S			force sending of duplicate articles
     -F			force fetching of duplicate articles
     -R			refresh message id, do nothing else
-    -P			perserve remote user id and headers
+    -P			preserve remote user id and headers
     -m <maxmsg>		set maximal number of message to keep track
     -o [logfile]	output to log stdout instead of log files
     -u <user>		specify the owner of gpg keyring
+    -a			recursively sync archive. *EXPERIMENTAL*
     <synclist>...	process specified boards or source
 
 =head1 ENVIRONMENT
@@ -63,7 +65,7 @@ The local BBS's location. Defaults to /home/melix or /home/bbs.
 
 =item EBX_USER
 
-The owner to C<.ebx.keyring>, the private keyring used to store 
+The owner to C<.ebx.keyring>, the private keyring used to store
 encrypted ebx passwords. Defaults to USER.
 
 =item EBX_HOME
@@ -76,6 +78,7 @@ The home directory of EBX_USER, defaults to HOME.
 
 use strict;
 use warnings;
+use open IN => ':raw', OUT => ':raw';
 use Term::ReadKey;
 
 BEGIN { ReadMode('noecho') }
@@ -88,43 +91,85 @@ use Compress::Zlib;
 use Getopt::Std;
 use Storable qw/nfreeze thaw/;
 
-use OurNet::BBS '1.54';
+use OurNet::BBS '1.55';
 use OurNet::BBSApp::Sync;
 
 $|++;
 
+no strict 'refs';
+*{'::DESTROY'} = sub {};
+
+local $SIG{__DIE__};
+local $SIG{__WARN__};
+
+if ($^O eq 'MSWin32' and eval 'use Win32; 1') {
+    $SIG{__DIE__} = sub {
+        Win32::MsgBox(
+            $_[0], 
+            $_[0] =~ /^\n/ ? &Win32::MB_ICONINFORMATION
+                           : &Win32::MB_ICONERROR,
+            "EBX v$main::VERSION-$main::REVISION",
+        ) unless $^S or $_[0] =~ /DESTROY/;
+    };
+
+    $SIG{__WARN__} = sub {
+        Win32::MsgBox(
+            $_[0], 
+            $_[0] =~ /\n$/ ? &Win32::MB_ICONEXCLAMATION
+                           : &Win32::MB_ICONINFORMATION,
+            "EBX v$main::VERSION-$main::REVISION",
+        ) unless $^S or $_[0] =~ /DESTROY/;
+    };
+}    
+
 my %args;
-my $action = shift(@ARGV) if 
+my $action = shift(@ARGV) if
     @ARGV and substr($ARGV[0], 0, 1) ne '-';
 
-getopts('m:o:u:dfglhSFRP', \%args);
+getopts('m:o:u:dfglhaSFRP', \%args);
 
 $action ||= shift(@ARGV) || '';
 
 if ($args{h}) {
     if ($^O eq 'MSWin32') {
-	my $exec = $0;
-	$exec =~ s/\.exe$//i;
-        system("perldoc $exec");
-	exit;
+        require Pod::Text;
+
+	my $source = $0;
+	$source  =~ s/\.exe$//i;
+	open(my $fh, $source) or die "cannot open $source for reading.\n";
+	use open IN => ':raw', OUT => ':crlf';
+
+	open my $fhout, '>', "$ENV{TEMP}/ebx.txt"
+	    or die "cannot open $ENV{TEMP}/ebx.txt for writing.\n";
+	
+	*STDOUT = $fhout;
+
+	Pod::Text->new(
+	    sentence => 0, width => 78
+	)->parse_from_filehandle($fh);
+
+	close $fh;
+	close $fhout;
+
+	exec("$ENV{TEMP}/ebx.txt");
     }
     else {
-	ReadMode('restore') and exec('perldoc', $0);
+	ReadMode('restore');
+	exec('perldoc', $0);
     }
 }
-
 
 my $bbs      = init_bbs();
 my $logfh    = IO::Handle->new();
 my $tmp_path = File::Spec->tmpdir();
 my $maxmsg   = $args{m} || 128;
-my $user     = $args{u} || $ENV{EBX_USER} || $ENV{USER} || 
+my $user     = $args{u} || $ENV{EBX_USER} || $ENV{USER} ||
     (($^O eq 'MSWin32') ? $ENV{USERNAME} : getpwent());
 my $passphrase;
 
 $OurNet::BBS::DEBUG = $OurNet::BBS::DEBUG = 1 if $args{d};
 
-my @actions  = qw/sync setpass delpass listpass setboard/;
+my @actions  = qw/sync setpass delpass listpass setboard listboard/;
 
 if (index(" @actions ", " $action ") > -1) {
     no strict 'refs'; &{$action};
@@ -142,7 +187,7 @@ Type '$0 -h' to see available options.
 Copyright 2001 by Chia-Liang Kao <clkao\@clkao.org>,
                   Autrijus Tang <autrijus\@autrijus.org>.
 
-This program is free software; you can redistribute it and/or 
+This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
 See <http://www.perl.com/perl/misc/Artistic.html>.
@@ -150,18 +195,30 @@ See <http://www.perl.com/perl/misc/Artistic.html>.
 .
 }
 
-exit;
-
 # ===================================================================
 # The BOARD command family section
 # ===================================================================
 
+sub listboard {
+    foreach my $board (sort { $a cmp $b } keys %{$bbs->{boards}}) {
+	my $bm    = $bbs->{boards}{$board}{bm};
+        next if @ARGV and index(" @ARGV ", " $board ") == -1
+                      and index(" @ARGV ", ' @'.substr($bm, 2).' ') == -1;
+	my $title = $bbs->{boards}{$board}{title};
+	print "$board\t$title\t$bm\n";
+    }
+}
+
 sub setboard {
-    die "usage: $0 setboard [<boards>...]\n" unless @ARGV;
+    @ARGV = split(/[\s\t]+/, input("enter board(s) to setup mirror: "))
+        unless @ARGV;
+
+    die "no board(s) specified for setup.\n" unless @ARGV;
 
     foreach my $board (@ARGV) {
 	# XXX: is the function below desirable?
-	if (0 and exists $bbs->{boards}{$board}) {
+	if (exists $bbs->{boards}{$board}) {
+=begin comment
 	    my $inp = input("board exists. continue? [y/N/c(lear)]: ");
 	    next if $inp =~ /[Nn]/;
 	    if ($inp =~ /[Cc]/) {
@@ -169,8 +226,17 @@ sub setboard {
 		foreach my $key (keys(%{$artgrp})) {
 		    delete $artgrp->{$key};
 		};
-		print "board <$board> cleared.\n";
+		warn "board <$board> cleared.\n";
 	    }
+=cut
+	}
+	elsif ($^O eq 'MSWin32') {
+	    my $path = find_bbs(
+		'c:/cygwin/home/melix', 'c:/program files/melix/home/melix'
+	    );
+	    
+	    system("$path/bin/sh.exe", '/home/melix/bin/stop.sh')
+	        if defined $path;
 	}
 
 	modify_board(
@@ -186,7 +252,7 @@ sub setboard {
 	);
     }
 
-    print "boards(s) successfully set.\n";
+    warn "boards(s) successfully set.\n";
 }
 
 
@@ -238,7 +304,7 @@ sub modify_board {
 # board: $rbrd
 # rseen: $rsen
 # lseen: $pbac
-# lmsgid: 
+# lmsgid:
 __XMSGID__
 .
     };
@@ -261,7 +327,7 @@ sub setpass {
     }
 
     $passring->save_keyring($keyring);
-    print "password(s) successfully set.\n";
+    warn "password(s) successfully set.\n";
 }
 
 # list all login/pass pairs
@@ -291,7 +357,7 @@ sub delpass {
     }
 
     $passring->save_keyring($keyring);
-    print "password(s) successfully deleted.\n";
+    warn "password(s) successfully deleted.\n";
 }
 
 # ===================================================================
@@ -326,9 +392,9 @@ sub sync {
 	my $rbbs = eval { OurNet::BBS->new(
 	    $backend, @rhost, get_login($keyring, $rhost, $backend)
 	) };
-	
+
 	if ($@) {
-	    print $@;
+	    warn $@;
 	    exit if $args{f};
 	    next;
 	}
@@ -352,6 +418,7 @@ sub sync_start {
     my $restart;
     my $param  = $site->{param};
     my $lbrdag = $site->{lbrdag};
+    my $lbrdac = $site->{lbrdac};
     my $rbrd   = eval { $rbbs->{boards} };
 
     if (!$rbrd or $@) { $logfh->print("cannot login ($@)"); return; }
@@ -363,18 +430,32 @@ sub sync_start {
     if ($@) { $logfh->print("cannot access board ($@)"); return; }
 
     my $sync = OurNet::BBSApp::Sync->new({
-	artgrp     => $lbrdag, 
-	rartgrp    => $rbrd->{articles}, 
-	param      => $param, 
+	artgrp     => $lbrdag,
+	rartgrp    => $rbrd->{articles},
+	param      => $param,
 	backend    => $param->{backend},
 	logfh      => $logfh,
+	msgidkeep  => $args{m},
 	force_send => $args{S},
 	force_fetch=> $args{F},
 	force_none => $args{R},
+	recursive  => $args{a},
 	clobber	   => !(defined($args{P})),
     });
 
-    $sync->do_fetch();
+    $sync->do_fetch;
+
+    if ($args{a}) {
+	# sync archive!
+	$sync->{param}   = {
+	    %{$param}, rseen => 0, lseen => undef, force_fetch => 1,
+	};
+	$sync->{artgrp}  = $lbrdac,
+	$sync->{rartgrp} = $rbrd->{archives},
+	$sync->do_fetch;
+	$sync->{param}   = $param;
+    }
+
     $restart = $sync->do_send() unless ($args{g});
 
     update_config($site->{config}, $site->{param});
@@ -390,33 +471,37 @@ sub sync_init {
     my %remote;
     my %synclist = map { $_ => 1 } @ARGV;
     my $boards = $bbs->{boards};
-       
+    my @sync = (index("@ARGV", '@') > -1) 
+	? grep { exists $boards->{$_} } @ARGV
+	: keys(%$boards);
+
     print "scheduled for sync:";
 
-    foreach my $name (sort { uc($a) cmp uc($b) } keys(%$boards)) {
+    foreach my $name (sort { uc($a) cmp uc($b) } @sync) {
 	my $brd = $boards->{$name};
 	my $arv = $brd->{archives};
-	    
+
 	while (my (undef, $art) = each(%{$brd->{archives}})) {
 	    next if ref($art) =~ /Group/;
 	    next unless $art->{title} =~ m/^\#/;
 
 	    my %param = %{read_config($art)};
 
-	    next if %synclist and !$synclist{$name} 
+	    next if %synclist and !$synclist{$name}
 		and !$synclist{'@'.($param{source} || '')};
 
-	    next unless $param{source} and $param{board} 
+	    next unless $param{source} and $param{board}
 		and (length($param{rseen}) or length($param{lseen}));
 
 	    print " $name";
-	    
+
 	    $param{backend} ||= 'BBSAgent';
 
 	    my $key = "$param{backend}::$param{source}";
 
 	    push @{$remote{$key}}, {
 		lbrdag => $brd->{articles},
+		lbrdac => $brd->{archives},
 		param  => \%param,
 		config => $art,
 	    };
@@ -494,7 +579,18 @@ sub read_config {
 	}
     }
 
-    $param{msgids} = thaw(uncompress(decode_base64($msgid))) if $msgid;
+    if ($msgid) {
+	$param{msgids} = thaw(uncompress(decode_base64($msgid)));
+	if ($param{msgids} and $param{msgids}[0] and
+	    substr($param{msgids}[0], 0, 1) ne '<'
+	) {
+	    # transition script
+	    foreach my $msgid (@{$param{msgids}}) {
+		next unless defined $msgid;
+		$msgid = "<$msgid>" if substr($msgid, 0, 1) ne '<';
+	    }
+	}
+    }
 
     return \%param;
 }
@@ -502,7 +598,7 @@ sub read_config {
 sub update_config {
     my ($art, $param) = @_;
 
-    $param->{msgids} = [@{$param->{msgids}}[-(($maxmsg) * 2) .. -1]] 
+    $param->{msgids} = [@{$param->{msgids}}[-(($maxmsg) * 2) .. -1]]
 	if $#{$param->{msgids}} > ($maxmsg) * 2;
 
     my $newmsg = encode_base64(compress(nfreeze($param->{msgids})));
@@ -513,7 +609,7 @@ sub update_config {
 
     $body =~ s/__X?MSGID__[\x00-\xff]*$/__XMSGID__\012$newmsg/;
     $art->{body} = $body;
-	
+
     $logfh->print("[BoardSync] $param->{board}: configuration updated.\n");
 }
 
@@ -556,21 +652,45 @@ sub input {
 sub init_bbs {
     my ($bbs, $backend, $bbsroot);
 
-    $backend = $ENV{EBX_BACKEND} || 'MELIX'; 
+    $backend = $ENV{EBX_BACKEND} || 'MELIX';
     $bbsroot = $ENV{EBX_BBSROOT} || (
-	($^O eq 'MSWin32')
-	    ? 'c:\program files\melix\home\melix'
-	    : (-d '/home/melix' ? '/home/melix' : '/home/bbs')
-    ) || '.';
-    
+	($^O eq 'MSWin32') ? find_bbs(
+	    'c:/cygwin/home/melix', 'c:/program files/melix/home/melix'
+	) : find_bbs('/home/melix', '/home/bbs')
+    );
+
+    local $@;
     $bbs = eval { OurNet::BBS->new($backend, $bbsroot, 2997, 350) };
-    
+
     if ($@) {
 	$bbs = OurNet::BBS->new($backend, $bbsroot);
 	warn "warning: tying up shared memory (2997, 350) failed.\n";
     }
 
     return $bbs;
+}
+
+sub find_bbs {
+    local $@;
+    
+    if ($^O eq 'MSWin32' and eval 'use Win32::TieRegistry; 1') {
+    	no warnings 'once';
+        my $Registry = $Win32::TieRegistry::Registry;
+
+	my $binary_path = (
+	    $Registry->{'HKEY_LOCAL_MACHINE\Software\Elixir\melix\\'}->{''} ||
+            $Registry->{'HKEY_LOCAL_MACHINE\Software\Cygnus Solutions\\'.
+                        'Cygwin\mounts v2\/\native'}
+        );
+        
+        unshift(@_, "$binary_path/home/melix") if defined $binary_path;
+    }
+
+    foreach my $path (@_, '.') {
+	return $path if -d $path and -e "$path/.BRD";
+    }
+
+    die "cannot find Melix BBS's .BRD file in path: (@_).\n"
 }
 
 1;
@@ -587,7 +707,7 @@ Autrijus Tang E<lt>autrijus@autrijus.org>
 Copyright 2001 by Chia-Liang Kao E<lt>clkao@clkao.org>,
 		  Autrijus Tang E<lt>autrijus@autrijus.org>.
 
-This program is free software; you can redistribute it and/or 
+This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
 See L<http://www.perl.com/perl/misc/Artistic.html>

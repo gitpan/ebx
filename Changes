@@ -1,6 +1,171 @@
 ____________________________________________________________________________
+[  1480] By: autrijus@whitegnote                   on 2001/07/23 01:13:40
+	Log: * this be ebx 0.84.
+	     * selective listboard implemented.
+	     * correct DIE and WARN handler for win32.
+	     * use Pod::Text instead of perldoc under win32.
+       Path: build
+	   ! makeebx.bat
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1479] By: autrijus@whitegnote                   on 2001/07/23 00:16:14
+	Log: * use dialog box in win32 now
+	     * fix the 'no DESTROY' bug in win32
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1464] By: autrijus@whitegnote                   on 2001/07/18 01:54:06
+	Log: * line discipline and F_SETFD for PassRing
+	     * Sync no longer retracks legacy-style Message-IDs
+	     * utilizes Win32::TieRegistry in makeebx and ebx
+       Path: build
+	   ! Artistic ebx.nsi makeebx.bat
+       Path: .
+	   ! PassRing.pm Sync.pm ebx
+____________________________________________________________________________
+[  1460] By: autrijus@autribsd                     on 2001/07/17 22:31:42
+	Log: * use open pragma to replace binmode
+	     * win32 path detection
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1451] By: autrijus@whitegnote                   on 2001/07/16 11:32:40
+	Log: * no MailBox support in Win32 binary yet.
+       Path: build
+	   ! makeebx.bat
+____________________________________________________________________________
+[  1449] By: autrijus@autribsd                     on 2001/07/16 09:14:54
+	Log: * listboard command (incomplete) to go with the plugin
+	     * GET_LIST enhanced EBX setboard selection via 'M'
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1446] By: autrijus@autribsd                     on 2001/07/16 01:24:22
+	Log: * no longer iterates through all boards if specific boards are
+	     given
+	     * eliminate superfluous warnings
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1441] By: autrijus@autribsd                     on 2001/07/15 14:37:22
+	Log: * -m (msgidkeep) wasn't working, fixed
+	     * NNTP sync back to life
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1440] By: autrijus@autribsd                     on 2001/07/15 14:25:12
+	Log: * random cleanups
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1431] By: autrijus@autribsd                     on 2001/07/14 23:58:19
+	Log: * remedies legacy Message-ID headers without angle brackets
+	     * more convincing fake Message-ID header for ArticleGroup
+	     objects
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1423] By: autrijus@whitegnote                   on 2001/07/13 07:05:42
+	Log: * bbscomd: new -x option to detect directory on cygwin
+	     * same for ebx
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1422] By: autrijus@whitegnote                   on 2001/07/13 07:05:01
+	Log: * proper uninstalling
+	     * melix works now without cygwin
+       Path: build
+	   ! ebx.nsi makeebx.bat
+____________________________________________________________________________
+[  1421] By: autrijus@whitegnote                   on 2001/07/13 07:03:33
+	Log: * new set of icons for win32 uses
+       Path: build
+	   + setboard.ico sync.ico
+____________________________________________________________________________
+[  1411] By: autrijus@whitegnote                   on 2001/07/12 01:13:21
+	Log: add icons to win32 builds
+       Path: build
+	   ! ebx.nsi
+____________________________________________________________________________
+[  1406] By: autrijus@autribsd                     on 2001/07/11 22:20:18
+	Log: * primitive support for -a (recursive archive sync)
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1404] By: autrijus@autribsd                     on 2001/07/11 00:19:58
+	Log: * the elix icon. how very.
+       Path: build
+	   + elix.ico
+____________________________________________________________________________
+[  1376] By: clkao@clcvic                          on 2001/07/04 01:53:40
+	Log: yasb. i shall sleep.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1375] By: clkao@claptop                         on 2001/07/04 01:51:31
+	Log: yasb.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1374] By: clkao@claptop                         on 2001/07/04 01:49:52
+	Log: do send things out for non-BBSAgent backend even if -g.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1363] By: autrijus@autribsd                     on 2001/07/01 09:27:55
+	Log: * kluge to prevent multiple pairs of parenthesis around
+	     nicknames
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1315] By: autrijus@autribsd                     on 2001/06/27 04:10:41
+	Log: * extremely esoteric bug: Base::FETCH will set _flag for
+	     unreferenced
+	     objects, but lacks an ArrayProxy handler to properly unset it.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1288] By: autrijus@autricvic                    on 2001/06/25 19:49:04
+	Log: * retrofix: avoid ..bbs
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1260] By: autrijus@whitegnote                   on 2001/06/22 07:01:57
+	Log: * some paranoid error-checking code and a YASB
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1259] By: autrijus@autribsd                     on 2001/06/22 02:12:05
+	Log: * include Changes in win32 distro.
+       Path: build
+	   ! makeebx.bat
+____________________________________________________________________________
+[  1258] By: autrijus@autribsd                     on 2001/06/22 02:09:36
+	Log: * fixed BBSAgent fetch.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1257] By: autrijus@autrihome                    on 2001/06/21 11:47:00
+	Log: * ebx 0.83 release on win32
+	     * added set board shortcut, modified ebx behaviour to match
+       Path: build
+	   ! ebx.nsi makeebx.bat
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1249] By: autrijus@autribsd                     on 2001/06/20 19:22:28
+	Log: * ebx -h wasn't working (!)
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1244] By: autrijus@autricvic                    on 2001/06/20 05:51:01
+	Log: * oops, that was a typo. says 0.83 instead.
+       Path: .
+	   ! Changes
+____________________________________________________________________________
 [  1243] By: autrijus@autribsd                     on 2001/06/20 05:47:11
-	Log: * This be ebx-0.83 release.
+	Log: * This be ebx-1.83 release.
        Path: .
 	   ! README Sync.pm ebx
 ____________________________________________________________________________
