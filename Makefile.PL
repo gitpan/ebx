@@ -17,8 +17,8 @@ WriteMakefile(
 	'Mail::Address'         => '1.17',       # Sync
 	'GnuPG::Interface'      => '0.31',       # PassRing
 	'Term::ReadKey'		=> '2.14',       # ebx
-	'MIME::Base64'		=> '2.12',       # ebx
-	'Compress::Zlib'	=> '1.12',       # ebx
+	'MIME::Base64'		=> '2.11',       # ebx
+	'Compress::Zlib'	=> '1.08',       # ebx
 	'Getopt::Std'		=> '1.02',       # ebx
 	'Storable'		=> '1.011',      # ebx
     },

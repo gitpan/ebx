@@ -1,10 +1,10 @@
 # $File: //depot/ebx/Sync.pm $ $Author: autrijus $
-# $Revision: #38 $ $Change: 1120 $ $DateTime: 2001/06/13 11:27:23 $
+# $Revision: #50 $ $Change: 1243 $ $DateTime: 2001/06/20 05:47:11 $
 
 package OurNet::BBSApp::Sync;
 require 5.006;
 
-$VERSION = '0.82-dev';
+$VERSION = '0.83';
 
 use strict;
 use integer;
@@ -36,6 +36,8 @@ OurNet::BBSApp::Sync - Sync between BBS article groups
         },
         force_fetch => 0,
 	force_send  => 0,
+	force_none  => 0,
+	clobber	    => 1,
         backend     => 'BBSAgent',
         logfh       => \*STDOUT,
     });
@@ -61,14 +63,15 @@ Lots. Please report bugs as much as possible.
 =cut
 
 use fields qw/artgrp rartgrp param backend logfh msgidkeep hostname
-              force_send force_fetch/;
+              force_send force_fetch force_none clobber/;
 
 sub new {
     my $self = OurNet::BBS::Base::TIEHASH(@_); # save time
 
     $self->{msgidkeep} ||= 128;
-    $self->{logfh}     ||= IO::Handle->new()->fdopen(fileno(STDOUT),"w");
     $self->{hostname}  ||= $OurNet::BBS::Utils::hostname || 'localhost';
+    $self->{logfh}     ||= IO::Handle->new->fdopen(fileno(STDOUT), 'w');
+    $self->{logfh}->autoflush(1);
 
     return $self;
 }
@@ -77,8 +80,9 @@ sub new {
 sub nth {
     my ($ary, $ent) = @_;
 
+    no warnings 'uninitialized';
+
     foreach my $i (0 .. $#{@{$ary}}) {
-	local $^W;
 	return $i if $ary->[$i] eq $ent;
     }
 
@@ -171,11 +175,13 @@ sub do_send {
 	my %xart = (header => { %{$art->{header}} });
 	safe_copy($art, \%xart);
 
-	my $adr = (Mail::Address->parse($xart{header}{From}))[0];
+	if ($self->{clobber}) {
+	    my $adr = (Mail::Address->parse($xart{header}{From}))[0];
 
-	$xart{header}{From} = (
-	    $adr->address.'@'.$self->{hostname}.' '.$adr->comment
-	) if $adr;
+	    $xart{header}{From} = (
+		$adr->address.'@'.$self->{hostname}.' '.$adr->comment
+	    ) if $adr;
+	}
 
 	my $xorig = $artgrp->board.'.board@'.$self->{hostname};
 
@@ -185,24 +191,24 @@ sub do_send {
 	{
 	    $xart{header}{'X-Originator'} = $xorig;
 	}
-	elsif (rindex($xart{body}, "--\n¡° Origin:") > -1) {
+	elsif (rindex($xart{body}, "--\n¡°") > -1) {
 	    chomp($xart{body});
 	    chomp($xart{body});
 	    $xart{body} .= "\n¡° X-Originator: $xorig";
 	}
 	else {
-	    $xart{body} .= "--\nX-Originator: $xorig";
+	    $xart{body} .= "--\n¡° X-Originator: $xorig";
 	}
 
-	eval { $rartgrp->{''} = \%xart };
+	eval { $rartgrp->{''} = \%xart } unless $self->{force_none};
 
-	unless ($@) {
-	    $param->{lseen}  = $lseen;
-	    $param->{lmsgid} = $art->{header}{'Message-ID'};
-	}
-	else {
+	if ($@) {
 	    my $error = $@; chomp $error;
 	    $logfh->print("     [send] #$lseen: can't post ($error)\n");
+	}
+	else {
+	    $param->{lseen}  = $lseen;
+	    $param->{lmsgid} = $art->{header}{'Message-ID'};
 	}
     }
 
@@ -265,6 +271,8 @@ sub do_fetch {
         $rseen = $i - 1;
     }
 
+    $rseen = 0 if $rseen < 0;
+
     $logfh->print(
 	($rseen < $last)
 	    ? "    [fetch] range: ".($rseen+1)."..$last\n"
@@ -273,12 +281,14 @@ sub do_fetch {
 
     return if $rseen >= $last;
 
+    my $xorig = $artgrp->board().".board\@$self->{hostname}";
+
     while ($rseen < $last) {
         my $art;
 
         $logfh->print("    [fetch] #".($rseen+1).": reading");
 
-	eval {
+	eval { 
 	    $art = $rartgrp->[$rseen+1];
 	    $art->refresh();
 	};
@@ -288,41 +298,51 @@ sub do_fetch {
 	    ++$rseen; next;
         }
 
-	my $xorig = $artgrp->board.'.board@'.$self->{hostname};
+	my $msgid = $art->{header}{'Message-ID'}; # XXX voodoo refresh
+
+	$art = $art->SPAWN;
+
 	my $rhead = $art->{header};
 
-	if (
-	    $self->{force_fetch} or
+	if ($self->{force_fetch} or
 	    rindex($art->{body}, "X-Originator: $xorig") == -1 and
-	    nth($param->{msgids}, $rhead->{'Message-ID'}) == -1 and
+	    nth($param->{msgids}, $msgid) == -1 and
 		($rhead->{'X-Originator'} || '') ne $xorig
 	) {
-	    push @{$param->{msgids}}, $rhead->{'Message-ID'};
+	    push @{$param->{msgids}}, $msgid;
 
 	    my %xart = (header => $rhead); # maximal cache
 	    safe_copy($art, \%xart);
 
-	    $xart{header}{Board} = $artgrp->board; 
 	    $xart{header}{'X-Originator'} = 
 		"$rbrdname.board\@$param->{remote}" if $backend ne 'NNTP';
 
-	    if ($param->{backend} eq 'BBSAgent') {
-		$xart{body} =~ s/\x1b\[[\d;]*m//g;
-		$xart{body} =~ s|^((?:: )+)|'> ' x (length($1)/2)|meg;
+	    # the code below makes us *really* want a ??= operator.
+            $xart{body}  = "\n" unless defined $xart{body};
+            $xart{title} = " "  unless defined $xart{title};
+	    $xart{body} =~ s|^((?:: )+)|'> ' x (length($1)/2)|gem;
+
+	    if ($self->{clobber} and $backend ne 'NNTP') {
+		$xart{header}{From} = 
+		    "$xart{author}.bbs\@$param->{remote}" . 
+		    ($xart{nick} ? " ($xart{nick})" : '')
+			unless $xart{header}{From} =~ /^[^\(]+\@/;
+		$xart{author} .= "." unless !$xart{author}
+		    or substr($xart{author}, -1) eq '.';
+	    }
+	    elsif (0) { # XXX: not yet supported
+		$xart{header}{'Reply-To'} = 
+		    "$xart{author}.bbs\@$param->{remote}" . 
+		    (defined $xart{nick} ? " ($xart{nick})" : '')
+			unless $xart{header}{From} =~ /^[^\(]+\@/;
 	    }
 
-	    # the code below makes us *really* want a ??= operator.
-            $xart{body}   = "\n" unless defined $xart{body};
-            $xart{title}  = " "  unless defined $xart{title};
-            $xart{author} = "(nobody)."
-		unless defined($xart{author}); # for sanity's sake
-
-            $artgrp->{''} = \%xart;
+            $artgrp->{''} = \%xart unless $self->{force_none};
             $logfh->print(" $xart{title}\n");
         }
         else {
             $logfh->print("... duplicate, skipped\n");
-	    push @{$param->{msgids}}, $art->{header}{'Message-ID'};
+	    push @{$param->{msgids}}, $msgid;
         }
 
 	++$rseen;
@@ -365,4 +385,3 @@ All rights reserved.  You can redistribute and/or modify
 this module under the same terms as Perl itself.
 
 =cut
-

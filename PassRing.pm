@@ -1,5 +1,5 @@
 # $File: //depot/ebx/PassRing.pm $ $Author: autrijus $
-# $Revision: #9 $ $Change: 1120 $ $DateTime: 2001/06/13 11:27:23 $
+# $Revision: #11 $ $Change: 1220 $ $DateTime: 2001/06/19 04:02:45 $
 
 package OurNet::BBSApp::PassRing;
 
@@ -9,8 +9,17 @@ use strict;
 
 use IO::Handle;
 use GnuPG::Interface;
-use Storable qw/freeze thaw/;
+use Storable qw/nfreeze thaw/;
 use fields qw/gnupg keyfile who/;
+
+# XXX: Win32 GnuPG::Interface is *absolutely* broken!
+# XXX: we might need to use symmetric key, say Crypt::* here.
+
+if ($^O eq 'MSWin32') {
+    *POSIX::STDERR_FILENO = sub { 2 };
+    *POSIX::STDOUT_FILENO = sub { 1 };
+    *POSIX::STDIN_FILENO = sub { 0 };
+}
 
 sub new {
     my ($class, $keyfile, $who) = @_;
@@ -20,8 +29,11 @@ sub new {
     $self->{keyfile} = $keyfile;
     $self->{who}     = $who;
 
-    $gpg->options->hash_init( armor => 0, always_trust => 1);
-    $gpg->options->meta_interactive( 0 );
+    $gpg->options->hash_init(
+	armor	     => 0, 
+	always_trust => 1,
+    );
+    $gpg->options->meta_interactive(0);
     $gpg->options->push_recipients($self->{who});
     
     return $self;
@@ -39,11 +51,12 @@ sub get_keyring {
     open KEY, $self->{keyfile} 
 	or die "can't open keyfile $self->{keyfile}: $!";
 
-    my ( $input, $output, $stderr, $passphrase_fd )
-           = ( IO::Handle->new(),
-               IO::Handle->new(),
-	       IO::Handle->new(),
-               IO::Handle->new());
+    my ($input, $output, $stderr, $passphrase_fd) = ( 
+	IO::Handle->new,
+	IO::Handle->new,
+	IO::Handle->new,
+	IO::Handle->new,
+    );
 
     my $handles = GnuPG::Handles->new( 
 	stdin      => $input,
@@ -78,10 +91,11 @@ sub get_keyring {
 sub save_keyring {
     my ($self, $keyring) = @_;
 
-    my ( $input, $output, $stderr )
-           = ( IO::Handle->new(),
-	       IO::Handle->new(),
-               IO::Handle->new());
+    my ($input, $output, $stderr) = ( 
+	IO::Handle->new,
+	IO::Handle->new,
+	IO::Handle->new,
+    );
 
     my $handles = GnuPG::Handles->new( 
 	stdin  => $input,
@@ -91,18 +105,18 @@ sub save_keyring {
 
     my $pid = $self->{gnupg}->encrypt( handles => $handles );
 
-    print $input freeze($keyring);
+    print $input nfreeze($keyring);
     close $input;
 
     local $/;
-    open KEY, ">$self->{keyfile}" 
+    open(my $KEY, '>', $self->{keyfile}) 
 	or die "can't write keyfile $self->{keyfile}: $!";
     my $ci = <$output>;
     close $output;
 
     waitpid $pid, 0;
-    print KEY $ci;
-    close KEY; 
+    print $KEY $ci;
+    close $KEY; 
 }
 
 1;

@@ -1,4 +1,143 @@
 ____________________________________________________________________________
+[  1243] By: autrijus@autribsd                     on 2001/06/20 05:47:11
+	Log: * This be ebx-0.83 release.
+       Path: .
+	   ! README Sync.pm ebx
+____________________________________________________________________________
+[  1240] By: autrijus@autrimobl                    on 2001/06/20 05:36:32
+	Log: This be ebx-win32 v0.83a2.
+       Path: build
+	   ! ebx.nsi
+____________________________________________________________________________
+[  1237] By: autrijus@autribsd                     on 2001/06/20 04:22:36
+	Log: * From line nickname detection was broken, fixed
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1223] By: autrijus@autricvic                    on 2001/06/19 17:26:10
+	Log: * update Changes in preperation to 1.55 release
+       Path: .
+	   ! Changes
+____________________________________________________________________________
+[  1222] By: autrijus@autrimobl                    on 2001/06/19 05:06:02
+	Log: This be EBX-0.83a1 for windows.
+       Path: build
+	   + Artistic ebx.nsi
+____________________________________________________________________________
+[  1220] By: autrijus@autrimobl                    on 2001/06/19 04:02:45
+	Log: * Win32 PassRing beyond hope
+       Path: .
+	   ! PassRing.pm ebx
+____________________________________________________________________________
+[  1219] By: autrijus@autrimobl                    on 2001/06/19 03:57:25
+	Log: * ebx -h now works under win32
+	     * updated makeebx
+	     * the new bbsagent behaviour owrks under perlapp now
+       Path: build
+	   ! makeebx.bat
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1216] By: autrijus@autribsd                     on 2001/06/19 01:49:59
+	Log: * documentation cleanup
+	     * Client now uses show() to display debug messages
+	     * 5.6 scripts now uses 'use warnings' instead of -w
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1214] By: autrijus@autrimobl                    on 2001/06/19 00:46:41
+	Log: * fixed Net::Telnet 3.12 warnings
+	     * Sync's output now autoflushes
+	     * getpwent() not implemented in Win32; fixed
+	     * relaxed dependencies in ebx's Makefile
+       Path: .
+	   ! Makefile.PL Sync.pm ebx
+____________________________________________________________________________
+[  1213] By: autrijus@autribsd                     on 2001/06/18 20:33:03
+	Log: * updated Changes
+	     * PassRing style fix; also uses nfreeze() now for future
+	     portability
+	     * added some instructions to README
+       Path: .
+	   ! Changes PassRing.pm README
+____________________________________________________________________________
+[  1210] By: autrijus@autricvic                    on 2001/06/18 20:10:22
+	Log: * random warnings
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1209] By: autrijus@autribsd                     on 2001/06/18 20:08:58
+	Log: * voodoo preload before SPAWN
+	     * completes the SPAWN-based Sync update series
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1206] By: autrijus@autribsd                     on 2001/06/18 19:31:35
+	Log: * Sync now utilizes SPAWN to reduce OurNet loading time
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1194] By: autrijus@autribsd                     on 2001/06/18 00:48:24
+	Log: * NNTP fixed.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1183] By: autrijus@autribsd                     on 2001/06/17 22:15:09
+	Log: * 5.6 style warnings  
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1175] By: autrijus@autribsd                     on 2001/06/16 08:27:17
+	Log: * clobber now applies to do_send too
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1174] By: autrijus@autribsd                     on 2001/06/16 08:26:19
+	Log: * more Origin line vanity
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1172] By: autrijus@autribsd                     on 2001/06/16 07:41:29
+	Log: * fixed nick () handling bug    
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1171] By: autrijus@autribsd                     on 2001/06/16 07:23:35
+	Log: * introduces Sync's clobber mode which put the "." to article.
+	     * Util now hashes with a fascist hostname, so different
+	     backends work
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1167] By: autrijus@autribsd                     on 2001/06/16 05:50:26
+	Log: * since the last changes breaks everything, use the new -R
+	     option
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1158] By: clkao@claptop                         on 2001/06/15 17:26:28
+	Log: exit if connection fails when fork flag is set.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1149] By: autrijus@autribsd                     on 2001/06/15 07:54:04
+	Log: * RCS and license changes
+	     * ebx will now checks $rbrd's sanity before getting anything
+	     else
+	     * sync will now stop if nothing's to be done
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1122] By: autrijus@autribsd                     on 2001/06/13 11:46:22
+	Log: * leading up for next release.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1121] By: autrijus@autribsd                     on 2001/06/13 11:28:52
+	Log: * working toward 0.83...
+       Path: .
+	   ! Changes
+____________________________________________________________________________
 [  1120] By: autrijus@autribsd                     on 2001/06/13 11:27:23
 	Log: * this be EBX v0.82 release.
        Path: .
@@ -152,10 +291,10 @@ ____________________________________________________________________________
 ____________________________________________________________________________
 [  1034] By: autrijus@Izero2                       on 2001/06/10 19:48:12
 	Log: EBX on Win32 patch!
-       Path: .
-	   ! ebx
        Path: build
 	   + makeebx.bat
+       Path: .
+	   ! ebx
 ____________________________________________________________________________
 [  1021] By: clkao@claptop                         on 2001/06/10 08:48:45
 	Log: bump version after release point.
