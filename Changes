@@ -1,4 +1,204 @@
 ____________________________________________________________________________
+[  2072] By: clkao@claptop                         on 2001/10/15 09:43:21
+	Log: This be ebx 0.87
+       Path: .
+	   ! Makefile.PL PassRing.pm Sync.pm ebx
+____________________________________________________________________________
+[  2062] By: autrijus@autrixor                     on 2001/10/15 06:43:36
+	Log: * POD nitpick.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  2056] By: autrijus@autribsd                     on 2001/10/14 01:48:58
+	Log: * fixes bbsagent look-up on non-win32 platform.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  2055] By: autrijus@autribsd                     on 2001/10/14 01:40:45
+	Log: * replace truth value tests with length() tests (reported by
+	     smartboy).
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  2031] By: autrijus@autricvic                    on 2001/10/12 18:49:01
+	Log: * oops! i was writing Basic.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  2029] By: autrijus@autricvic                    on 2001/10/12 18:41:59
+	Log: * the do_send should add .bbs extension to local-based mails
+	     * adds support for External backend.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1924] By: autrijus@autribsd                     on 2001/09/28 15:12:25
+	Log: * added bundle instructions.
+       Path: .
+	   ! README
+____________________________________________________________________________
+[  1895] By: autrijus@autribsd                     on 2001/09/24 18:43:11
+	Log: * added PassRing POD, cleans up other pods.
+	     * fixed oops in Bundle::ebx.
+       Path: lib
+	   ! Bundle/ebx.pm
+       Path: .
+	   ! PassRing.pm Sync.pm ebx
+____________________________________________________________________________
+[  1891] By: autrijus@autribsd                     on 2001/09/24 14:20:42
+	Log: * -s is now transparently supported.
+	     * passring no longer bitches under perl 5.7.2.
+	     * re-ordered MANIFEST via MakeMaker.
+       Path: .
+	   ! MANIFEST PassRing.pm Sync.pm ebx
+____________________________________________________________________________
+[  1866] By: autrijus@autribsd                     on 2001/09/19 06:56:20
+	Log: * too strict: an failed fetch would have both empty body and
+	     subject.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1863] By: autrijus@autribsd                     on 2001/09/19 06:14:58
+	Log: * callback support.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[  1860] By: autrijus@autribsd                     on 2001/09/19 01:49:56
+	Log: * implements max length check for setboard
+	     * adjusts pod text accomodates the new pod2man style
+	     * updates usage synopsis
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1850] By: autrijus@autribsd                     on 2001/09/18 22:20:40
+	Log: * add the -s (save config every [interval] updates) option.
+	     * recognizes the -p option now.
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1820] By: autrijus@autribsd                     on 2001/09/16 20:03:04
+	Log: * update bundle to include IO::Stringy.
+       Path: lib
+	   ! Bundle/ebx.pm
+____________________________________________________________________________
+[  1817] By: autrijus@autribsd                     on 2001/09/15 06:47:04
+	Log: * Bundle::ebx initial check-in. this should simplify download
+	     process.
+       Path: lib
+	   + Bundle/ebx.pm
+       Path: .
+	   ! MANIFEST
+____________________________________________________________________________
+[  1797] By: clkao@claptop                         on 2001/09/11 18:15:41
+	Log: delay a second in fork mode to aviod burst load.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1796] By: clkao@claptop                         on 2001/09/11 18:07:51
+	Log: fix locking.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1763] By: autrijus@autribsd                     on 2001/09/10 09:33:56
+	Log: * POD nitpicks.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1751] By: autrijus@autribsd                     on 2001/09/08 07:23:09
+	Log: * implements append settings to a board
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1718] By: whiteg@whitegnote                     on 2001/09/05 20:28:42
+	Log: some editing
+       Path: build
+	   ! readme.txt
+____________________________________________________________________________
+[  1717] By: whiteg@whitegnote                     on 2001/09/05 20:23:51
+	Log: modify BBS Daemon explanation
+       Path: build
+	   ! readme.txt
+____________________________________________________________________________
+[  1716] By: whiteg@whitegnote                     on 2001/09/05 20:10:20
+	Log: add sync mail
+       Path: build
+	   ! readme.txt
+____________________________________________________________________________
+[  1711] By: whiteg@whitegnote                     on 2001/09/05 04:44:00
+	Log: * uses ExecShell to show readme.txt
+	     * hints about its location
+       Path: build
+	   ! ebx.nsi readme.txt
+____________________________________________________________________________
+[  1710] By: whiteg@whitegnote                     on 2001/09/05 04:37:46
+	Log: * readme.txt shouldn't mention version numbers.
+       Path: build
+	   ! readme.txt
+____________________________________________________________________________
+[  1709] By: whiteg@whitegnote                     on 2001/09/05 04:35:43
+	Log: * shows readme file when installation ends
+	     * the EBX readme
+       Path: build
+	   ! ebx.nsi
+	   + readme.txt
+____________________________________________________________________________
+[  1708] By: autrijus@whitegnote                   on 2001/09/05 04:30:13
+	Log: * support for readme.txt
+       Path: build
+	   ! ebx.nsi
+____________________________________________________________________________
+[  1707] By: autrijus@whitegnote                   on 2001/09/05 04:29:48
+	Log: * solves Win95 Win32::EventLog loading problem
+       Path: build
+	   ! makeebx.bat runebx.pl
+____________________________________________________________________________
+[  1705] By: autrijus@whitegnote                   on 2001/09/05 01:05:22
+	Log: * automatic BBSAgent name resolution for passring (whiteg)
+	     * standardized the $site for BBSAgent: no '.bbs' as suffix.
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1704] By: autrijus@whitegnote                   on 2001/09/05 00:24:03
+	Log: * changed license file to show copyright on install
+	     * uses ebxrun.pl as the new ebx.exe to allow easy upgrade
+	     * implements domain name => bbsagent site resolution (DEBBY)
+	     * prompts for empty passphrases
+       Path: build
+	   ! ebx.nsi makeebx.bat
+	   + License runebx.pl
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1702] By: autrijus@whitegnote                   on 2001/09/04 23:05:17
+	Log: * archive sync was screwed up; fixed
+	     * ebx should still call stop.sh because of a heisenbug
+       Path: .
+	   ! Sync.pm ebx
+____________________________________________________________________________
+[  1697] By: whiteg@whitegnote                     on 2001/09/04 09:24:19
+	Log: * fixes -r so it works on windows
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1696] By: whiteg@whitegnote                     on 2001/09/04 09:17:36
+	Log: * typo (duh)
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1695] By: whiteg@whitegnote                     on 2001/09/04 09:16:58
+	Log: * remedies if there's no archive storage
+       Path: .
+	   ! ebx
+____________________________________________________________________________
+[  1694] By: autrijus@autribsd                     on 2001/09/04 09:12:52
+	Log: * changelist bump
+       Path: build
+	   ! makeebx.bat
+____________________________________________________________________________
+[  1692] By: clkao@claptop                         on 2001/09/04 06:07:14
+	Log: changes, 0.87-dev
+       Path: .
+	   ! Changes ebx
+____________________________________________________________________________
 [  1691] By: clkao@claptop                         on 2001/09/04 06:04:53
 	Log: this be ebx 0.86
        Path: .

@@ -1,16 +1,49 @@
-# $File: //depot/ebx/PassRing.pm $ $Author: autrijus $
-# $Revision: #15 $ $Change: 1512 $ $DateTime: 2001/08/06 21:36:32 $
+# $File: //depot/ebx/PassRing.pm $ $Author: clkao $
+# $Revision: #18 $ $Change: 2072 $ $DateTime: 2001/10/15 09:43:21 $
 
 package OurNet::BBSApp::PassRing;
+require 5.006;
 
-$VESION = '0.4';
+$VESION = '0.5';
 
 use strict;
+use fields qw/gnupg passphrase keyfile who/;
+use constant IsWin32 => ($^O eq 'MSWin32');
+use open (IsWin32 ? (IN => ':raw', OUT => ':raw') : ());
 
 use IO::Handle;
 use Storable qw/nfreeze thaw nstore retrieve/;
-use fields qw/gnupg passphrase keyfile who/;
-use open IN => ':raw', OUT => ':raw';
+
+=head1 NAME
+
+OurNet::BBSApp::PassRing - Password Ring Management
+
+=head1 SYNOPSIS
+
+    use OurNet::BBSApp::PassRing;
+
+    my $pass    = OurNet::BBSApp::PassRing->new('~/.ebx.keyring', $user);
+    my $keyring = $pass->get_keyring(my $passphrase = <STDIN>);
+    my $cipher  = 'Rijndael'; # could be 'GnuPG'
+
+    $keyring->{key} = 'value';
+    $pass->save_keyring($keyring, $cipher);
+
+=head1 DESCRIPTION
+
+L<OurNet::BBSApp::PassRing> manages the symmetrically-encrypted files
+of userid/password data pairs used by I<ebx>.
+
+This module currently supports two ciphers: I<Rijndael> (the default)
+and I<GnuPG>. It could automatically detect the cipher when retrieving
+an existing keyring file.
+
+=head1 BUGS
+
+The I<GnuPG> support on Win32 is broken beyond belief, probably due
+to poor I<open3()> support (see L<GnuPG::Interface>).
+
+=cut
 
 # XXX: Win32 GnuPG::Interface is *absolutely* broken!
 # XXX: we might need to use symmetric key, say Crypt::* here.
@@ -189,3 +222,25 @@ sub store_gnupg {
 
 1;
 
+__END__
+
+=head1 SEE ALSO
+
+L<ebx>, L<OurNet::BBSApp::Sync>
+
+=head1 AUTHORS
+
+Chia-Liang Kao E<lt>clkao@clkao.org>,
+Autrijus Tang E<lt>autrijus@autrijus.org>
+
+=head1 COPYRIGHT
+
+Copyright 2001 by Chia-Liang Kao E<lt>clkao@clkao.org>,
+                  Autrijus Tang E<lt>autrijus@autrijus.org>.
+
+All rights reserved.  You can redistribute and/or modify
+this module under the same terms as Perl itself.
+
+See L<http://www.perl.com/perl/misc/Artistic.html>
+
+=cut

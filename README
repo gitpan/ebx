@@ -13,6 +13,11 @@ perl Makefile.PL
 make
 make install
 
+Alternatively, you could install this distribution with
+all prerequisite modules via CPAN's bundle mechanism:
+
+% perl -MCPAN -einstall+q-Bundle::ebx-
+
 * Copyright
 
 Copyright 2001 by Chia-Liang Kao <clkao@clkao.org>,

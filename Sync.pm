@@ -1,10 +1,10 @@
-# $File: //depot/ebx/Sync.pm $ $Author: autrijus $
-# $Revision: #73 $ $Change: 1642 $ $DateTime: 2001/09/01 17:03:05 $
+# $File: //depot/ebx/Sync.pm $ $Author: clkao $
+# $Revision: #83 $ $Change: 2072 $ $DateTime: 2001/10/15 09:43:21 $
 
 package OurNet::BBSApp::Sync;
 require 5.006;
 
-$VERSION = '0.86';
+$VERSION = '0.87';
 
 use strict;
 use integer;
@@ -48,6 +48,7 @@ OurNet::BBSApp::Sync - Sync between BBS article groups
 	clobber	    => 1,
         backend     => 'BBSAgent',
         logfh       => \*STDOUT,
+	callback    => sub { },
     });
 
     $sync->do_fetch('archives');
@@ -55,7 +56,7 @@ OurNet::BBSApp::Sync - Sync between BBS article groups
 
 =head1 DESCRIPTION
 
-L<OurNet::BBSApp::Sync> performs a sophisticated synchronization heuristic
+B<OurNet::BBSApp::Sync> performs a sophisticated synchronization algorithm
 on two L<OurNet::BBS> ArticleGroup objects. It operates on the first one
 (C<lartgrp>)'s behalf, updates what's being done in the C<param> field, 
 and attempts to determine the minimally needed transactions to run.
@@ -71,7 +72,7 @@ Lots. Please report bugs as much as possible.
 =cut
 
 use fields qw/artgrp rartgrp param backend logfh msgidkeep hostname
-              force_send force_fetch force_none clobber recursive/;
+              force_send force_fetch force_none clobber recursive callback/;
 
 use constant SKIPPED_HEADERS =>
     ' name header xid id xmode idxfile time mtime btime basepath'.
@@ -177,7 +178,7 @@ sub do_send {
 	    $art = eval { $artgrp->[$lseen_last - 1] } and
 	    $art->{header}{'Message-ID'} eq $lmsgid_last) {
 	    $lseen = $lseen_last;
-	    print "     [send] (cached) check from $lseen_last\n";
+	    print "     [send] (cached) checking from $lseen_last\n";
 	}
 	else {
 	    ++$lseen;
@@ -185,7 +186,7 @@ sub do_send {
 	    while (--$lseen > 0) {
 		my $art = eval { $artgrp->[$lseen - 1] } or next;
 
-		$logfh->print("     [send] #$lseen: look back\n");
+		$logfh->print("     [send] #$lseen: looking back\n");
 		last unless $lmsgid lt $art->{header}{'Message-ID'};
 	    }
 
@@ -196,8 +197,10 @@ sub do_send {
     while ($lseen++ <= $#{$artgrp}) {
         my $art = eval { $artgrp->[$lseen - 1] } or next;
         next unless defined $art->{title}; # sanity check
+
 	$lseen_last = $lseen;
 	$lmsgid_last = $art->{header}{'Message-ID'};
+
         next unless (
 	    $self->{force_send} or (
 		index(($art->{header}{'X-Originator'} || ''),  
@@ -216,13 +219,13 @@ sub do_send {
 	    my $adr = (Mail::Address->parse($xart{header}{From}))[0];
 
 	    $xart{header}{From} = (
-		$adr->address.'@'.$self->{hostname}.' '.$adr->comment
-	    ) if $adr;
+		$adr->address.'.bbs@'.$self->{hostname}.' '.$adr->comment
+	    ) if $adr and index($adr->address, '@') == -1;
 	}
 
 	my $xorig = $artgrp->board.'.board@'.$self->{hostname};
 
-	if (index(' NNTP MELIX DBI ', $backend) > -1
+	if (index(' External NNTP MELIX DBI ', $backend) > -1
 	    or ($backend eq 'OurNet' 
 	        and index(' NNTP MELIX DBI ', $rartgrp->backend) > -1))
 	{
@@ -246,6 +249,9 @@ sub do_send {
 	else {
 	    $param->{lseen}  = $lseen;
 	    $param->{lmsgid} = $art->{header}{'Message-ID'};
+
+	    $self->{callback}->($self, 'post')
+		if UNIVERSAL::isa($self->{callback}, 'CODE'); # callback
 	}
     }
 
@@ -310,7 +316,9 @@ sub do_fetch {
 	    eval {
 		my $art = $rartgrp->[$i++];
 		$art->refresh;
-		push @{$msgids}, $art->{header}{'Message-ID'};
+		$self->update_msgid(
+		    $dir, $art->{header}{'Message-ID'}, 'init'
+		);
 	    };
 
             $logfh->print($@ ? " failed: $@\n" : " ok\n");
@@ -388,14 +396,14 @@ sub do_fetch {
 	) {
 	    my (%xart, $xartref);
 
-	    push @{$msgids}, $msgid;
+	    $self->update_msgid($dir, $msgid, 'fetch');
 
 	    if (!$is_group) {
 		%xart = (header => $rhead); # maximal cache
 		safe_copy($art, $xartref = \%xart);
 
 		# the code below makes us *really* want a ??= operator.
-		unless (defined $xart{body} and 
+		unless (defined $xart{body} or 
 		        defined $xart{header}{Subject}) {
 		    print "... article empty, skipped\n";
 		    ++$rseen; next;
@@ -464,15 +472,22 @@ sub do_fetch {
         }
         else {
             $logfh->print("... duplicate, skipped\n");
-	    push @{$msgids}, $msgid;
+	    $self->update_msgid($dir, $msgid, 'duplicate');
         }
 
-	++$rseen;
+	$param->{rseen} = ++$rseen;
     }
 
-    $param->{rseen} = $rseen;
-
     return $artgrp->[-1] || 1; # must be here to re-initialize this board
+}
+
+sub update_msgid {
+    my ($self, $dir, $msgid, $reason) = @_;
+
+    push @{$self->{param}{msgids}{$dir}}, $msgid;
+
+    $self->{callback}->($self, $reason)
+	if UNIVERSAL::isa($self->{callback}, 'CODE'); # callback
 }
 
 sub fetch_archive {
@@ -481,9 +496,9 @@ sub fetch_archive {
 
     my ($artgrp, $rartgrp) = @{$self}{qw/artgrp rartgrp/};
 
-    $self->{param}{rseen} = shift;
     $self->{artgrp}  = shift;
     $self->{rartgrp} = shift;
+    $self->{param}{rseen} = shift;
 
     my ($msgid, $depth, $btime, $btimes) = @_;
 
@@ -511,7 +526,7 @@ __END__
 
 =head1 SEE ALSO
 
-L<ebx> -- The Elixir BBS Exchange Suite.
+L<ebx>, L<OurNet::BBSApp::PassRing>, L<OurNet::BBS>
 
 =head1 AUTHORS
 
@@ -525,5 +540,7 @@ Copyright 2001 by Chia-Liang Kao E<lt>clkao@clkao.org>,
 
 All rights reserved.  You can redistribute and/or modify
 this module under the same terms as Perl itself.
+
+See L<http://www.perl.com/perl/misc/Artistic.html>
 
 =cut

@@ -1,16 +1,10 @@
 #!/usr/bin/perl
 # $File: //depot/ebx/ebx $ $Author: clkao $
-# $Revision: #94 $ $Change: 1691 $ $DateTime: 2001/09/04 06:04:53 $
+# $Revision: #112 $ $Change: 2072 $ $DateTime: 2001/10/15 09:43:21 $
 
-$VERSION  = '0.86';
-
-if ($] > 5.007001) {
-    $REVISION = 'rev80[@1590]-buggy';
-}
-else {
-    $REVISION = "rev$1\[\@$2\]" 
-        if ('$Revision: #94 $ $Change: 1691 $' =~ /(\d+)[^\d]+(\d+)/);
-}
+$VERSION  = '0.87';
+$REVISION = 'rev'.substr('$Revision: #112 $', 12, -2).
+	    '['.substr('$Change: 2072 $', 9, -2).']';
 
 =head1 NAME
 
@@ -18,10 +12,13 @@ ebx - Elixir BBS Exchange Suite
 
 =head1 SYNOPSIS
 
-    % ebx sync [-adfghlmouAFPRS] [-m <maxmsg>] [-o [logfile]] ]
-               [-u <user>] [-r <seconds>] [<boards>...]
-    % ebx <set|del|list>pass [-u <user>] [<sites>...]
-    % ebx <set|list>board [<boards>...]
+B<ebx> B<sync> S<[ B<-adfghlmopuxAFPRS> ]> S<[ B<-m> I<maxmsg> ]>
+    S<[ B<-o> [I<logfile>] ]> S<[ B<-r> I<seconds> ]> S<[ B<-s> [I<interval>] ]>
+    S<[ B<-u> I<user> ]> S<[ I<boards>... ]>
+
+B<ebx> <B<set>|B<del>|B<list>>B<pass> S<[ B<-u> I<user> ]> S<[ I<sites>... ]>
+
+B<ebx> <B<set>|B<list>>B<board> S<[ I<boards>... ]>
 
 =head1 DESCRIPTION
 
@@ -49,8 +46,11 @@ settings configured within.
     -l			enable per-site locking
     -m <maxmsg>		set maximal number of message to keep track
     -o [logfile]	output to log stdout instead of log files
+    -p			post only; skip fetching articles
     -r <delay>		repeat sync every <delay> seconds
+    -s [interval]	write config every [interval] updates (default 1)
     -u <user>		specify the owner of gpg passring
+    -x			remove lockfiles and proceed anyway
     -A			sync archive *only*: ignore articles
     -F			force fetching of duplicate articles
     -P			preserve remote user id and headers
@@ -66,20 +66,20 @@ The following environment variables are understood by ebx:
 
 =item EBX_BACKEND
 
-The local BBS's backend. Defaults to MELIX.
+The local BBS's backend. Defaults to C<MELIX>.
 
 =item EBX_BBSROOT
 
-The local BBS's location. Defaults to /home/melix or /home/bbs.
+The local BBS's location. Defaults to F</home/melix> or F</home/bbs>.
 
 =item EBX_USER
 
-The owner to C<.ebx.keyring>, the private passring used to store
-encrypted ebx passwords. Defaults to USER.
+The owner to F<.ebx.keyring>, the private passring used to store
+encrypted ebx passwords. Defaults to C<USER>.
 
 =item EBX_HOME
 
-The home directory of EBX_USER, defaults to HOME.
+The home directory of B<EBX_USER>, defaults to C<HOME>.
 
 =back
 
@@ -89,6 +89,7 @@ use strict;
 use warnings;
 
 use constant IsWin32 => ($^O eq 'MSWin32');
+use constant MAX_BOARD_LENGTH => 12;
 use open (IsWin32 ? (IN => ':raw', OUT => ':raw') : ());
 use Term::ReadKey;
 
@@ -117,7 +118,7 @@ END {
 my %args;
 my $action = shift(@ARGV) if @ARGV and substr($ARGV[0], 0, 1) ne '-';
 
-getopts('adfghlm:o:r:u:AFPRS', \%args);
+getopts('adfghlpsxm:o:r:u:AFPRS', \%args);
 delete $args{f} if IsWin32;
 
 $action ||= shift(@ARGV) || '';
@@ -144,7 +145,8 @@ if ($args{h}) {
 	close $fh;
 	close $fhout;
 
-	exec("$ENV{TEMP}/ebx.txt");
+	system('start', "$ENV{TEMP}/ebx.txt");
+	$0 = ''; exit;
     }
     else {
 	ReadMode('restore');
@@ -210,28 +212,41 @@ sub setboard {
     foreach my $board (@ARGV) {
 	my $preserve;
 
+	die "length of board name '$board' exceeded ".MAX_BOARD_LENGTH.
+	    " bytes.\n" if length($board) > MAX_BOARD_LENGTH;
+
 	if (exists $bbs->{boards}{$board}) {
-	    my $inp = input(
-		"board exists. preserve settings? [Y/n/p(urge board)]: "
-	    );
+	    my $inp = lc(substr(input(
+		"board exists. append? [y/N/p(urge board)]: "
+	    ), 0, 1));
 
-	    $preserve = $inp =~ /[Yy]/;
-
-	    delete $bbs->{boards}{$board} if $inp =~ /[Pp]/;
-	    warn "board <$board> purged.\n";
+	    if ($inp eq 'p') {
+		delete $bbs->{boards}{$board};
+		warn "board <$board> purged.\n";
+	    }
+	    elsif ($inp eq 'y') {
+		$preserve = 1;
+	    }
 	}
 	elsif (IsWin32) {
-	    print "this change will take effect the next time you log in.\n";
+ 	    my $path = find_bbs(
+ 		'c:/cygwin/home/melix', 'c:/program files/melix/home/melix'
+ 	    );
+
+ 	    my $sh = Win32::GetShortPathName("$path/bin/sh.exe") if $path;
+
+ 	    system($sh, '/home/melix/bin/stop.sh ipc-daemon') if -e $sh;
+ 	    print "this change will take effect the next time you log in.\n";
 	}
 
 	modify_board(
 	    $board,
 	    get_addr(
-		input("enter backend for $board [BBSAgent]: ") || 'BBSAgent',
+		input("enter backend for $board [BBSAgent]: ", 'BBSAgent'),
 		input("enter remote site: "),
 	    ),
-	    input("enter remote board [$board]: ") || $board,
-	    input("enter local title [$board]: ") || $board,
+	    input("enter remote board [$board]: ", $board),
+	    input("enter local title [$board]: ", $board),
 	    (input("do you want postback? [Y/n]: ") !~ /[Nn]/),
 	    $preserve ? undef : input("sync begins at which article? [0]: "),
 	);
@@ -240,9 +255,8 @@ sub setboard {
     warn "boards(s) successfully set.\n";
 }
 
-
 sub get_addr {
-    my ($backend, $site) = @_;
+    my ($backend, $site, $dont_die) = @_;
     return (@_, $site) unless $backend eq 'BBSAgent';
 
     foreach my $path (@INC) {
@@ -251,18 +265,44 @@ sub get_addr {
 	    "$path/OurNet/BBSAgent/$site.bbs",
 	    "$path/$site", "$path/$site.bbs",
 	) {
-	    open _, $bbsfile or next; scalar <_>;
-	    my $port = scalar <_>; chomp($port);
-	    $port =~ s/:23$//;
-	    return (@_, $port);
+	    open(my $FILE, $bbsfile) or next; scalar <$FILE>;
+	    my $addr = scalar <$FILE>;
+	    $addr =~ s/(?:\:\d*)?\W*$//;
+	    $site =~ s/\.bbs$//i;
+	    return ($backend, $site, $addr);
 	}
     }
 
-    die "cannot find bbsfile for $site\n";
+    foreach my $path (@INC) {
+        foreach my $bbsdir ("$path/OurNet/BBSAgent", $path) {
+            opendir(my $DIR, $bbsdir);
+            foreach my $bbsfile (readdir($DIR)) {
+            	next unless $bbsfile =~ /\.bbs$/i;
+	    	open(my $FILE, "$bbsdir/$bbsfile") or next; scalar <$FILE>;
+	    	my $addr = scalar <$FILE>;
+	    	$addr =~ s/(?:\:\d*)?\W*$//;
+	    	next unless fix_dns($site) eq fix_dns($addr);
+	    	print "domain name resolved as '$addr' in $bbsfile.\n";
+	    	return ($backend, substr($bbsfile, 0, -4), $addr);
+	    }
+	}
+    }
+
+    die "cannot find bbsfile for $site\n" unless $dont_die;
+}
+
+sub fix_dns {
+    my $dns = lc(shift);
+    $dns =~ s/^bbs\.//;
+    $dns =~ s/\.tw$//;
+    $dns =~ s/\.(?:com|edu|org|idv|museum|arpa)$//;
+    $dns =~ s/\.twbbs$//;
+    return $dns;
 }
 
 sub modify_board {
     my ($lbrd, $back, $site, $addr, $rbrd, $ltit, $pbac, $rsen) = @_;
+    my $overwrite = defined($rsen);
 
     $pbac = $pbac ? 0 : '';
     $rsen ||= 0;
@@ -275,7 +315,7 @@ sub modify_board {
     my $brd = $bbs->{boards}{$lbrd};
     my $arv = $brd->{archives};
 
-    (@{$arv} ? $arv->[0] : $arv->{''}) = {
+    ((@{$arv} and $overwrite) ? $arv->[0] : $arv->{''}) = {
 	header => {
 	    From    => "SYSOP (EBX v$main::VERSION-$main::REVISION)",
 	    Subject => '#',
@@ -309,10 +349,13 @@ sub setpass {
     die "usage: $0 setpass [<sites>...]\n" unless @ARGV;
 
     foreach my $site (@ARGV) {
+        $site =~ s/\.bbs$//i;
+	my $site2 = (get_addr('BBSAgent', $site, 1))[1];
 	my $login = input("enter login name for <$site>: ");
-	my $pass  = input("enter password for <$login\@$site>: ", 1);
+	my $pass  = input("enter password for <$login\@$site>: ", '', 1);
 
 	$keyring->{$site} = "$login:$pass";
+	$keyring->{$site2} = "$login:$pass" unless $site2 eq $site;
     }
 
     $passring->save_keyring($keyring);
@@ -337,12 +380,15 @@ sub delpass {
     die "usage: $0 delpass [<sites>...]\n" unless @ARGV;
 
     foreach my $site (@ARGV) {
+    	$site =~ s/\.bbs$//;
+	my $site2 = (get_addr('BBSAgent', $site, 1))[1];
 	unless (exists $keyring->{$site}) {
 	    warn "site $site does not exist\n";
 	    next;
 	}
 
 	delete $keyring->{$site};
+	delete $keyring->{$site2} unless $site2 eq $site;
     }
 
     $passring->save_keyring($keyring);
@@ -359,7 +405,7 @@ sub sync {
     
     do {
     	do_sync($keyring);
-    } while ($args{r} and sleep $args{r});
+    } while ($args{r} and ($args{r} ? sleep $args{r} : 1) and $bbs = init_bbs());
 }
 
 sub do_sync {
@@ -371,7 +417,7 @@ sub do_sync {
 	    ($args{o} ? make_logfile($entry) : fileno(STDOUT)), 'w'
 	) unless (($logfh->fileno || -1) == fileno(STDOUT));
 
-	next if ($args{f} and fork());
+	next if ($args{f} and fork() and sleep(1));
 
 	my $lockfile = make_lockfile($entry) or next;
 
@@ -451,19 +497,29 @@ sub sync_start {
 	clobber	   => !(defined($args{P})),
     });
 
+    if (defined $args{s}) {
+	my $count = 0;
+	$args{s} ||= 1;
+
+	$sync->{callback} = sub {
+	    update_config($site->{config}, $site->{param}) # and print "...\n"
+		unless ++$count % $args{s}; # updates every $args{s} times
+	};
+    }
+
     unless ($args{A}) {
-	$sync->do_fetch('articles');
+	$sync->do_fetch('articles') unless $args{p};
 	$restart = $sync->do_send unless ($args{g} or $is_mailbox);
     }
 
     if (($args{a} || $args{A}) and !$is_mailbox
-        and eval { $sync->{rartgrp} = $rbrd->{archives} }
+        and !$args{p} and eval { $sync->{rartgrp} = $rbrd->{archives} }
     ) {
 	# sync archive!
 	my ($rseen, $lseen) = @{$sync->{param}}{qw/rseen lseen/};
 
 	@{$sync->{param}}{qw/rseen lseen/} = (
-	    @{$param->{msgids}{'archive'}} ? -$maxmsg : 0, 
+	    @{$param->{msgids}{archives} ||= []} ? -$maxmsg : 0, 
 	    undef,
 	);
 
@@ -474,6 +530,8 @@ sub sync_start {
     }
 
     update_config($site->{config}, $site->{param});
+
+    $logfh->print("[BoardSync] $param->{board}: configuration updated.\n");
 
     $lbrdag->purge;
     $rbrd->purge unless $is_mailbox;
@@ -502,9 +560,9 @@ sub sync_init {
 	    my %param = %{read_config($art)};
 
 	    next if %synclist and !$synclist{$name}
-		and !$synclist{'@'.($param{source} || '')};
+		and !$synclist{'@'.($param{source})};
 
-	    next unless $param{source} and $param{board}
+	    next unless length($param{source}) and length($param{board})
 		and (length($param{rseen}) or length($param{lseen}));
 
 	    print " $name";
@@ -560,7 +618,9 @@ sub make_home {
 
     if (IsWin32 and eval 'use Win32::TieRegistry; 1') {
         my $Registry = $Win32::TieRegistry::Registry;
-        $path = $Registry->{'HKEY_LOCAL_MACHINE\Software\Elixir\ebx\\'}->{''} . "\\";
+        $path = $Registry->{
+	    'HKEY_LOCAL_MACHINE\Software\Elixir\ebx\\'
+	}->{''} . "\\";
     }
     else {
         return $ENV{HOME} if $ENV{HOME};
@@ -583,12 +643,12 @@ login information. Future accesses to the passring will require
 you to enter the same passphrase.
 ================================================================
 .
+    for (1 .. 3) {
+	my $pass = input("enter passphrase for $user: ", '', 1);
+        print "passphrase empty; please try again.\n" and next
+	    unless length($pass);
 
-    for (1 .. 10) {
-	my $pass = input("enter passphrase for $user: ", 1);
-	next unless length($pass);
-
-	return $pass if $pass eq input("verify passphrase: ", 1);
+	return $pass if $pass eq input('verify passphrase: ', '', 1);
 	print "inputs mismatch, please try again.\n";
     }
     
@@ -604,7 +664,7 @@ sub get_keyring {
 	'/.ebx.keyring', $user
     );
 
-    unless (-e $passring->{keyfile} || $create) {
+    unless (-e ($passring->{keyfile} || $create)) {
 	print << ".";
 ================================================================
 Since you haven't initialized your passring, no connections will
@@ -617,8 +677,11 @@ be authenticated. Please use 'ebx setpass' to create a passring.
     my $keyring;
     my $initpass = init_keyring($passring) unless -e $passring->{keyfile};
 
-    for (1..3) {
-	my $passphrase = $initpass || input("enter passphrase for $user: ", 1);
+    for (1 .. 3) {
+	my $passphrase = $initpass;
+
+	$passphrase = input("enter passphrase for $user: ", '', 1)
+	    unless length($initpass);
 
 	$keyring = eval {$passring->get_keyring($passphrase)};
 
@@ -684,17 +747,15 @@ sub update_config {
 
     $body =~ s/__X?MSGID__[\x00-\xff]*$/__XMSGID__\012$newmsg/;
     $art->{body} = $body;
-
-    $logfh->print("[BoardSync] $param->{board}: configuration updated.\n");
 }
 
 sub make_lockfile {
-    my $lockfile = "ebx-$_[0].lock";
+    my $lockfile = "$tmp_path/ebx-$_[0].lock";
     $lockfile =~ s{/|::}{-}g;
 
     return $lockfile unless $args{l};
-
-    open LOCK, ">$tmp_path/$lockfile" or return;
+    return if -e $lockfile and !$args{x};
+    open LOCK, ">$lockfile" or return;
     print LOCK $$;
     close LOCK;
 
@@ -712,7 +773,7 @@ sub make_logfile {
 }
 
 sub input {
-    my ($prompt, $silent) = @_;
+    my ($prompt, $default, $silent) = @_;
 
     ReadMode($silent ? 'noecho' : 'normal');
 
@@ -721,7 +782,7 @@ sub input {
     chomp $input;
     print "\n" if $silent;
 
-    return $input;
+    return length($input) ? $input : $default;
 }
 
 sub init_bbs {
@@ -773,25 +834,27 @@ __END__
 
 =head1 TODO
 
-=over
+=over 4
 
-=item
+=item *
 
 Background mode, externally controlled mode.
 
-=item
+=back
 
-ebx setboard should check board name legnth.
+=head1 SEE ALSO
+
+L<OurNet::BBS>, L<OurNet::BBSApp::Sync>, L<OurNet::BBSApp::PassRing>
 
 =head1 AUTHORS
 
 Chia-Liang Kao E<lt>clkao@clkao.org>,
-Autrijus Tang E<lt>autrijus@autrijus.org>
+Autrijus Tang E<lt>autrijus@autrijus.org>.
 
 =head1 COPYRIGHT
 
 Copyright 2001 by Chia-Liang Kao E<lt>clkao@clkao.org>,
-		  Autrijus Tang E<lt>autrijus@autrijus.org>.
+                  Autrijus Tang E<lt>autrijus@autrijus.org>.
 
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
