@@ -1,0 +1,494 @@
+#!/usr/bin/perl -w
+
+$VERSION = '0.8';
+
+=head1 NAME
+
+ebx - Elixir BBS extension suite
+
+=head1 SYNOPSIS
+
+    % ebx sync [-lgdf] [-m <maxmsg>] [-o [logfile]] ] 
+               [-u <user>] [<boards>...]
+    % ebx <set|del|list>pass [-r] [-l] [-d] [-u <user>]
+    % ebx <set|del|list>board <board>
+
+=head1 DESCRIPTION
+
+This script synchronizes your local BBS's storage via the BBSCOM 
+settings configured within.
+
+=head1 COMMANDS
+
+    sync		Perform synchronization
+
+    setpass		Add login/password pairs
+
+    delpass		Delete login/password pairs
+
+    listpass		List current keyring
+
+    setboard		Set up boards for mirroring
+
+=head1 OPTIONS
+
+    -m <maxmsg>		Set maximal number of message to keep track
+			{ $main::maxmsg = $maxmsg }
+
+    -o [logfile]	Output to log stdout instead of log files
+			{ $main::logfile = $logfile }
+
+    -d			Enable debugging outputs
+			{ $OurNet::BBS::DEBUG = 1 }	
+
+    -f			Enable per-site forking
+
+    -l			Ignore per-site locking
+			{ $main::nolock = 1 }
+
+    -g			Skip passring check, use guest for all sites
+			{ $main::nopass = 1 }
+
+    -u <user>		The owner of gpg keyring
+			{ $main::user = $user } 
+
+    <synclist>...	Process specified boards or source
+			{ $synclist{$_} = 1 foreach (@synclist) }
+
+=head1 ENVIRONMENT
+
+=over
+
+=item EBX_BACKEND
+
+The local BBS's backend. Defaults to MELIX.
+
+=item EBX_BBSROOT
+
+The local BBS's location. Defaults to /home/melix or /home/bbs.
+
+=item EBX_USER
+
+The owner to C<.ebx.keyring>, the private keyring used to store 
+encrypted ebx passwords. Defaults to USER.
+
+=item EBX_HOME
+
+The home directory of EBX_USER, defaults to HOME.
+
+=back
+
+=cut
+
+use strict;
+
+use Term::ReadKey;
+
+BEGIN { ReadMode('noecho') }
+
+use MIME::Base64;
+use Compress::Zlib;
+use Getopt::Declare;
+use Storable qw/freeze thaw/;
+
+use OurNet::BBS;
+use OurNet::BBSApp::Sync;
+
+use vars qw/$user $nopass $nolock %synclist $logfile $maxmsg/;
+
+my $args = Getopt::Declare->new(options());
+my $bbs  = OurNet::BBS->new(
+    $ENV{EBX_BACKEND} || 'MELIX', 
+    $ENV{EBX_BBSROOT} || (-d '/home/melix' ? '/home/melix' : '/home/bbs')
+);
+
+*LOG = *STDOUT unless $args->{-o};
+
+if    ($args->{sync})     { sync(); } 
+elsif ($args->{setpass})  { addpass(); }
+elsif ($args->{delpass})  { delpass(); }
+elsif ($args->{listpass}) { listpass(); }
+elsif ($args->{setboard}) { setboard(); }
+else                      { $args->usage(); }
+
+# ===================================================================
+# The BOARD command family section
+# ===================================================================
+
+sub setboard {
+    foreach my $board (keys(%synclist)) {
+	modify_board (
+	    $board,
+	    get_addr(
+		input("Enter backend for $board [BBSAgent]: ") || 'BBSAgent',
+		input("Enter remote site: "),
+	    ),
+	    input("Enter remote board [$board]: ") || $board,
+	    input("Enter local title [$board]: ") || $board,
+	    (input("Do you want postback? [Y/n]: ") !~ /[Nn]/),
+	    input("Sync after which article? [0]: "),
+	);
+    }
+
+    print "boards(s) successfully set.\n";
+}
+
+sub get_addr {
+    my ($backend, $site) = @_;
+    return (@_, $site) unless $backend eq 'BBSAgent';
+
+    foreach my $path (@INC) {
+        foreach my $bbsfile (
+	    <$path/OurNet/BBSAgent/$site>,
+	    <$path/OurNet/BBSAgent/$site.bbs>
+	) {
+	    open _, $bbsfile or next; scalar <_>;
+	    my $port = scalar <_>; chomp($port);
+	    $port =~ s/:23$//;
+	    return (@_, $port);
+	}
+    }
+
+    die "cannot found bbsfile for $site\n";
+}
+
+sub modify_board {
+    my ($lbrd, $back, $site, $addr, $rbrd, $ltit, $pbac, $rsen) = @_;
+
+    $pbac = $pbac ? 0 : '';
+    $rsen ||= 0;
+
+    $bbs->{boards}{$lbrd} = {
+	title => $ltit,
+	bm    => "# $site",
+    };
+
+    my $brd = $bbs->{boards}{$lbrd};
+    my $arv = $brd->{archives};
+
+    (($#{$arv} > 0) ? $arv->[1] : $arv->{''}) = {
+	author => 'SYSOP',
+	nick   => "EBX v$main::VERSION",
+	title  => '#',
+	body => << ".",
+# remote: $addr
+# backend: $back
+# source: $site
+# board: $rbrd
+# rseen: $rsen
+# lseen: $pbac
+# lmsgid: 
+__XMSGID__
+.
+    };
+}
+
+# ===================================================================
+# The PASS command family section
+# ===================================================================
+
+# create login/pass pair
+sub addpass {
+    my ($passring, $keyring) = get_keyring();
+
+    foreach my $site (keys(%synclist)) {
+	my $login = input("Enter login name for $site: ");
+	my $pass  = input("Enter password for $login\@$site: ", 1);
+
+	$keyring->{$site} = "$login:$pass";
+    }
+
+    $passring->save_keyring($keyring);
+    print "password(s) successfully set.\n";
+}
+
+# list all login/pass pairs
+sub listpass {
+    my $keyring = get_keyring();
+
+    print "passring list for $user:\n";
+
+    while (my ($site, $info) = each(%$keyring)) {
+	$info =~ s/:.*$//;
+	printf "%-18s %s\n", "[$site]", $info;
+    }
+}
+
+# delete login/pass pair
+sub delpass {
+    my ($passring, $keyring) = get_keyring();
+
+    foreach my $site (keys(%synclist)) {
+	unless (exists $keyring->{$site}) {
+	    warn "site $site does not exist\n";
+	    next;
+	}
+
+	delete $keyring->{$site};
+    }
+
+    $passring->save_keyring($keyring);
+    print "password(s) successfully deleted.\n";
+}
+
+# ===================================================================
+# The SYNC command family section
+# ===================================================================
+
+# perform synchronization.
+sub sync {
+    my %remote = sync_init();
+    my $keyring = get_keyring() unless $nopass;
+
+    foreach my $entry (keys %remote) {
+	make_logfile($entry) if $args->{-o};
+
+	next if ($args->{-f} and fork());
+
+	my $lockfile = make_lockfile($entry) or next;
+
+	print LOG "synchronizing $entry\n";
+
+	my ($backend, $rhost) = split('::', $entry);
+
+	my $rbbs = OurNet::BBS->new(
+	    $backend, $rhost, get_login(
+		$keyring, $rhost, $backend eq 'BBSAgent'
+	    ),
+	) or die "no remote bbs";
+
+	foreach my $site (@{$remote{$entry}}) {
+	    sync_start($rbbs, $site, $entry);
+	}
+
+	unlink($lockfile);
+	exit if $args->{-f};
+    }
+
+    while (wait() != -1) { };
+}
+
+# starts synchronization.
+sub sync_start {
+    my ($rbbs, $site, $entry) = @_;
+    my $param  = $site->{param};
+    my $lbrdag = $site->{lbrdag};
+    my $rbrd   = $rbbs->{boards};
+
+    print LOG "=> ${entry}::$site->{param}{board}\n";
+
+    $rbrd = eval { $rbrd->{$param->{board}} };
+    if ($@) { print LOG $@; next; }
+
+    my $sync = OurNet::BBSApp::Sync->new({
+	artgrp     => $lbrdag, 
+	rartgrp    => $rbrd->{articles}, 
+	param      => $param, 
+	backend    => $param->{backend},
+	logfh      => \*LOG,
+    });
+
+    $sync->do_fetch();
+    $sync->do_send();
+
+    update_config($site->{config}, $site->{param});
+
+    $lbrdag->purge();
+    $rbrd->purge();
+}
+
+# initialize synchronization
+sub sync_init {
+    my %remote;
+    print "Scheduled for sync:";
+
+    my $boards = $bbs->{boards};
+
+    foreach my $name (keys(%$boards)) {
+	my $brd = $boards->{$name};
+	my $arv = $brd->{archives};
+	    
+	while (my (undef, $art) = each(%{$brd->{archives}})) {
+	    next if ref($art) =~ /Group/;
+	    next unless $art->{title} =~ m/^\#/;
+
+	    my %param = %{read_config($art)};
+
+	    next if %synclist and !$synclist{$name} 
+		and !$synclist{'@'.($param{source} || '')};
+
+	    next unless $param{source} and $param{board} 
+		and length($param{rseen});
+
+	    print " $name";
+	    
+	    $param{backend} ||= 'BBSAgent';
+
+	    my $key = "$param{backend}::$param{source}";
+
+	    push @{$remote{$key}}, {
+		lbrdag => $brd->{articles},
+		param  => \%param,
+		config => $art,
+	    };
+	}
+
+	$boards->purge();
+    }
+
+    print "\n";
+    return %remote;
+}
+
+# ===================================================================
+# Utility functions
+# ===================================================================
+
+# get login name from keyring.
+sub get_login {
+    my ($keyring, $rhost, $default) = @_;
+
+    if (exists $keyring->{$rhost}) {
+	return $keyring->{$rhost};
+    }
+    elsif ($default) {
+	print "no login info in keyring found for $rhost: using guest\n"
+	    unless $nopass;
+
+        return 'guest';
+    }
+}
+
+
+sub get_keyring {
+    require OurNet::BBSApp::PassRing;
+
+    $user ||= $ENV{EBX_USER} || $ENV{USER};
+
+    my $passring = OurNet::BBSApp::PassRing->new(
+	($ENV{EBX_HOME} || $ENV{HOME} || '.').'/.ebx.keyring', $user
+    );
+
+    my $passphrase = input("Enter passphrase for $user: ", 1);
+    my $keyring = eval {$passring->get_keyring($passphrase)};
+    die "can't get keyring; check passphrase and try again.\n" if $@;
+
+    return wantarray ? ($passring, $keyring) : $keyring;
+}
+
+sub read_config {
+    my $art    = shift;
+    my $xmsgid = 0;
+    my $msgid  = '';
+    my %param;
+
+    foreach my $line (split("\n", $art->{body})) {
+	if ($xmsgid == 1) {
+	    $msgid .= $line;
+	}
+	elsif ($line eq '__XMSGID__') {
+	    $xmsgid = 1;
+	}
+	elsif ($line =~ m/^\# (\w+):\s*(.*)$/) {
+	    $param{$1} = $2;
+	}
+    }
+
+    $param{msgids} = thaw(uncompress(decode_base64($msgid))) if $msgid;
+
+    return \%param;
+}
+
+sub update_config {
+    my ($art, $param) = @_;
+
+    $param->{msgids} = [@{$param->{msgids}}[-(($maxmsg || 128) * 2) .. -1]] 
+	if $#{$param->{msgids}} > ($maxmsg || 128) * 2;
+
+    my $newmsg = encode_base64(compress(freeze($param->{msgids})));
+    my @lines  = grep {!m/^# /} split("\n", $art->{body});
+    my $body   = join("\n", ((map {
+	"# $_: ".(defined $param->{$_} ? $param->{$_} : '')
+    } qw/remote backend source board rseen lseen lmsgid/), @lines));
+
+    $body =~ s/__XMSGID__[\x00-\xff]*$/__XMSGID__\n$newmsg/;
+    $art->{body} = $body;
+	
+    print LOG "[BoardSync] $param->{board}: configuration updated\n";
+}
+
+sub make_lockfile {
+    my $lockfile = "ebx-$_[0].lock";
+    $lockfile =~ s{/|::}{-}g;
+
+    return $lockfile if $nolock;
+
+    open LOCK, ">/tmp/$lockfile" or return;
+    print LOCK $$;
+    close LOCK;
+
+    return $lockfile;
+}
+
+sub make_logfile {
+    my $entry = shift;
+    my $log = $logfile || "/tmp/sync.$entry.log";
+
+    chmod 0666, $log;
+    open LOG, ">$log" or die "cannot write logfile: $!";
+    select(LOG); $|++;
+
+    return $log;
+}
+
+sub input {
+    my ($prompt, $silent) = @_;
+
+    ReadMode($silent ? 'noecho' : 0);
+
+    print $prompt;
+    my $input = <STDIN>;
+    chomp $input;
+    print "\n" if $silent;
+
+    return $input;
+}
+
+sub options {
+    my $output;#  = "\t[strict]\n";
+
+    seek DATA, 0, 0;
+
+    while (<DATA>) {
+	last if /^=head1 COMMANDS/;
+    }
+
+    while (<DATA>) {
+	next if /^=head1 OPTIONS/;
+	last if /^=\w/;
+	$output .= $_;
+    }
+
+    close DATA;
+
+    return $output;
+}
+
+1;
+
+__END__
+
+=head1 AUTHORS
+
+Chia-Liang Kao E<lt>clkao@clkao.org>,
+Autrijus Tang E<lt>autrijus@autrijus.org>
+
+=head1 COPYRIGHT
+
+Copyright 2001 by Chia-Liang Kao E<lt>clkao@clkao.org>,
+                  Autrijus Tang E<lt>autrijus@autrijus.org>.
+
+All rights reserved.  You can redistribute and/or modify
+this module under the same terms as Perl itself.
+
+=cut

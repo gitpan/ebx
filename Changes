@@ -1,0 +1,268 @@
+____________________________________________________________________________
+[   993] By: autrijus@autribsd                     on 2001/06/09 10:36:42
+	Log: * ebx v0.8 release.
+       Path: .
+	   ! Makefile.PL PassRing.pm Sync.pm ebx test.pl
+____________________________________________________________________________
+[   992] By: autrijus@autribsd                     on 2001/06/09 10:30:47
+	Log: * fix documentation works.
+       Path: .
+	   test.pl
+	   ! MANIFEST Makefile.PL README
+____________________________________________________________________________
+[   991] By: autrijus@autribsd                     on 2001/06/09 10:27:33
+	Log: * integrate Sync.pm back to ebx.
+       Path: .
+	  +> Sync.pm
+____________________________________________________________________________
+[   990] By: autrijus@autribsd                     on 2001/06/09 10:27:02
+	Log: * integrate ebx back from OurNet-BBSApp.
+       Path: .
+	   Changes MANIFEST Makefile.PL README ebx
+	  +> PassRing.pm
+____________________________________________________________________________
+[   984] By: autrijus@autricvic                    on 2001/06/08 15:20:17
+	Log: * introduces -l (ignore lock) option
+	     * rboard now fail-safes with eval
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   975] By: autrijus@autribsd                     on 2001/06/08 10:12:02
+	Log: * warning
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   971] By: clkao@claptop                         on 2001/06/08 07:08:07
+	Log: don't sort msgids, force push dup id. this should resolve lots
+	     of duplication work.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   970] By: clkao@claptop                         on 2001/06/08 06:25:53
+	Log: someone else's YASB
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   969] By: clkao@claptop                         on 2001/06/08 06:18:00
+	Log: test $@ instead of $art after eval in fetch.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   968] By: autrijus@autribsd                     on 2001/06/08 05:04:10
+	Log: * tests definedness for msgid
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   967] By: autrijus@autribsd                     on 2001/06/08 05:01:46
+	Log: * introduced -g (no keyring) to ebxsync 
+	     * small message change
+       Path: .
+	   ! Sync.pm ebxsync
+____________________________________________________________________________
+[   966] By: autrijus@autribsd                     on 2001/06/08 03:41:29
+	Log: * ebxsync now enters readmode 0 immediately
+	     * continues clean-up for Sync.pm
+       Path: .
+	   ! Sync.pm ebxsync
+____________________________________________________________________________
+[   962] By: whiteg@whitegnote                     on 2001/06/07 21:59:19
+	Log: PassRing support on cygwin
+       Path: .
+	   ! PassRing.pm
+____________________________________________________________________________
+[   961] By: clkao@claptop                         on 2001/06/07 08:02:23
+	Log: test $@ of eval after post, since store returns nothing.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   960] By: clkao@claptop                         on 2001/06/07 07:14:27
+	Log: indent fixes.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   959] By: autrijus@autribsd                     on 2001/06/07 05:09:29
+	Log: * ebxsync doc
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   958] By: autrijus@autribsd                     on 2001/06/07 04:42:13
+	Log: * removes File::stat usage from MAPLE3 backends
+	     * adds full PlClient backend support
+	     * clean up the sync suite significantly
+       Path: .
+	   ! Sync.pm ebxhell ebxsync
+____________________________________________________________________________
+[   955] By: clkao@claptop                         on 2001/06/06 20:26:43
+	Log: YASG again!
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   953] By: clkao@claptop                         on 2001/06/06 20:17:48
+	Log: YASB x (inf). hope this fixes loop back articles.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   952] By: clkao@claptop                         on 2001/06/06 20:10:00
+	Log: YASB x 2
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   951] By: autrijus@autribsd                     on 2001/06/06 19:52:43
+	Log: * allows for negative rseen subscripts.
+	     * restrict "last MSGIDKEEP" feature for NNTP only.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   950] By: autrijus@autribsd                     on 2001/06/06 19:31:24
+	Log: * implemented no-forking option -n
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   949] By: clkao@claptop                         on 2001/06/06 19:31:01
+	Log: don't try to fetch out of $last. no more unnecessary fetches.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   948] By: clkao@claptop                         on 2001/06/06 18:41:39
+	Log: fix -o
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   947] By: clkao@claptop                         on 2001/06/06 18:18:30
+	Log: KLUDGE: since local msgid and bbsagent based remote will be
+	     different. reinsert dup article msgid if it's not there
+       Path: .
+	   ! Sync.pm ebxsync
+____________________________________________________________________________
+[   945] By: clkao@claptop                         on 2001/06/06 17:27:33
+	Log: - fix hazard caused by remote empty (or deleted) articles.
+	     - get article_last from artgrp, requires OurNet::BBS v1.53
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   940] By: clkao@claptop                         on 2001/06/06 13:22:17
+	Log: shm touch is now fixed!
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   939] By: autrijus@autribsd                     on 2001/06/06 13:15:54
+	Log: * fixed the shm problem
+	     * introduced the ego() method
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   938] By: clkao@claptop                         on 2001/06/06 12:39:55
+	Log: add command line options -u to specify pgg key id to use.
+	     remainding options are to limit boards or sources to sync.
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   937] By: clkao@claptop                         on 2001/06/06 12:30:12
+	Log: YASB.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   936] By: autrijus@autribsd                     on 2001/06/06 12:13:13
+	Log: * fix remaining File::stat occurences
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   934] By: autrijus@autribsd                     on 2001/06/06 08:47:53
+	Log: * slightly updated ebxhell
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   931] By: clkao@claptop                         on 2001/06/06 07:48:50
+	Log: Use the better designed GnuPG::Interface instead of GnuPG.
+       Path: .
+	   ! PassRing.pm
+____________________________________________________________________________
+[   907] By: clkao@claptop                         on 2001/06/05 04:10:53
+	Log: kludge touch board share memory after adding new boards.
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   903] By: clkao@claptop                         on 2001/06/04 17:11:08
+	Log: kludge title for board creation
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   898] By: autrijus@autribsd                     on 2001/06/02 06:43:23
+	Log: * removed maple3 debug information
+	     * fixed ebxsync bug by vgod
+       Path: .
+	   ! ebxhell ebxsync
+____________________________________________________________________________
+[   881] By: autrijus@autribsd                     on 2001/06/02 03:01:34
+	Log: * ebxysnc utilizes purge() now.
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   865] By: autrijus@autribsd                     on 2001/06/01 19:41:14
+	Log: * implments purge.
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   843] By: clkao@claptop                         on 2001/05/31 05:19:05
+	Log: - update_config now trim msgids to size of MSGIDKEEP*2. (YASB)
+	     - ebxsync parent waits for children.
+	     - ebxsync logs output to files.
+       Path: .
+	   ! Sync.pm ebxsync
+____________________________________________________________________________
+[   842] By: autrijus@autribsd                     on 2001/05/31 02:58:35
+	Log: * minor gui cleanup of ebx shell
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   833] By: clkao@claptop                         on 2001/05/28 07:53:52
+	Log: use 'guest' if no login info in keyring.
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   832] By: autrijus@autribsd                     on 2001/05/28 07:32:17
+	Log: * fixed warning on articlegroup int() call
+	     * did away with *all* \d in bbsagent retrieval
+	     * introduced the new elixus.bbs
+	     * ebxpass now recognizes optional 3rd argument as user
+       Path: .
+	   ! ebxpass
+____________________________________________________________________________
+[   831] By: autrijus@autribsd                     on 2001/05/28 05:35:24
+	Log: * preliminary integration of board management into shell.
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   823] By: clkao@claptop                         on 2001/05/27 07:51:33
+	Log: non-important fixes.
+       Path: .
+	   ! Sync.pm ebxsync
+____________________________________________________________________________
+[   822] By: clkao@claptop                         on 2001/05/27 04:54:40
+	Log: fix keyring file path.
+       Path: .
+	   ! ebxsync
+____________________________________________________________________________
+[   821] By: clkao@claptop                         on 2001/05/27 04:52:55
+	Log: add #! magic.
+       Path: .
+	   ! ebxhell
+____________________________________________________________________________
+[   820] By: clkao@claptop                         on 2001/05/27 04:50:45
+	Log: fix a copy-paste error.
+       Path: .
+	   ! Sync.pm
+____________________________________________________________________________
+[   819] By: clkao@claptop                         on 2001/05/27 04:25:11
+	Log: virgin import of ebx. (previously known as clkao's sync.pl)
+	     - PassRing is a perl module manage your login info with GnuPG.
+	     - ebxpass is the command line shell of PassRing.
+	     - Sync.pm is the (somewhat) routines for sync'ing 2 BBSCOM
+	     objects.
+	     - ebxsync is the cool stuff. ebxsync now forks for different
+	     remote sources.
+	     - ebxhell is a reader using BBSCOM API. It is written with Cdk
+	     (cursese dev kit). Hopefully this would become the console of
+	     the client side suit.
+       Path: .
+	   + PassRing.pm Sync.pm ebxhell ebxpass ebxsync

@@ -1,0 +1,20 @@
+This is the README file for 'ebx', the Elixir BBS Exchange 
+Suite built on top of OurNet::BBS, by Elixir Group and 
+OurInternet, Inc.
+
+* Installation
+
+ebx uses the standard perl module install process:
+
+perl Makefile.PL
+make
+make install
+
+* Copyright
+
+Copyright 2001 by Chia-Liang Kao <clkao@clkao.org>,
+                  Autrijus Tang <autrijus@autrijus.org>.
+
+All rights reserved.  You can redistribute and/or modify
+this bundle under the same terms as Perl itself.
+
